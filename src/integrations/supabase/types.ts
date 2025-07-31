@@ -20,6 +20,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          questionnaire_id: string | null
           updated_at: string
         }
         Insert: {
@@ -27,6 +28,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          questionnaire_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -34,9 +36,18 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          questionnaire_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_questionnaire_id_fkey"
+            columns: ["questionnaire_id"]
+            isOneToOne: false
+            referencedRelation: "questionnaires"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

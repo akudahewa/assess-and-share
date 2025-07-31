@@ -47,14 +47,14 @@ const Assessment = () => {
         return;
       }
 
-      // Get questions for this questionnaire
+      // Get questions for this questionnaire with their categories
       const { data: questions, error } = await supabase
         .from('questions')
         .select(`
           id,
           text,
           options,
-          categories(name)
+          categories!inner(name)
         `)
         .eq('questionnaire_id', questionnaires[0].id)
         .order('order_number');
@@ -97,13 +97,12 @@ const Assessment = () => {
   const calculateResults = (userInfo: UserInfo, answers: AssessmentAnswers): AssessmentResults => {
     if (!questionnaire) return { userInfo, scores: [], overallScore: 0, reflections: {} };
 
-    const categoryColors = {
-      "Social Skills": "#3b82f6",
-      "Self Awareness": "#8b5cf6", 
-      "Motivating Self": "#f59e0b",
-      "Empathy": "#ec4899",
-      "Self Regulation": "#10b981"
-    };
+    // Dynamic category colors - generate colors for each category
+    const categoryColors: { [key: string]: string } = {};
+    const colorPalette = ["#3b82f6", "#8b5cf6", "#f59e0b", "#ec4899", "#10b981", "#ef4444", "#06b6d4", "#84cc16"];
+    Object.keys(questionnaire.categories).forEach((categoryName, index) => {
+      categoryColors[categoryName] = colorPalette[index % colorPalette.length];
+    });
 
     const scores: CategoryScore[] = Object.entries(questionnaire.categories).map(([categoryName, category]) => {
       const categoryAnswers = category.questions.map(q => answers[q.id] || 0);

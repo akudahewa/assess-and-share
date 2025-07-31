@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Edit, Trash2 } from "lucide-react";
@@ -12,27 +13,39 @@ interface Category {
   id: string;
   name: string;
   description: string | null;
+  questionnaire_id: string | null;
+}
+
+interface Questionnaire {
+  id: string;
+  title: string;
 }
 
 export const CategoryManager = () => {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    questionnaire_id: "",
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchCategories();
+    fetchQuestionnaires();
   }, []);
 
   const fetchCategories = async () => {
     const { data, error } = await supabase
       .from('categories')
-      .select('*')
+      .select(`
+        *,
+        questionnaires(title)
+      `)
       .order('name');
 
     if (error) {
@@ -43,6 +56,23 @@ export const CategoryManager = () => {
       });
     } else {
       setCategories(data || []);
+    }
+  };
+
+  const fetchQuestionnaires = async () => {
+    const { data, error } = await supabase
+      .from('questionnaires')
+      .select('id, title')
+      .order('title');
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch questionnaires",
+        variant: "destructive",
+      });
+    } else {
+      setQuestionnaires(data || []);
     }
   };
 
@@ -76,7 +106,7 @@ export const CategoryManager = () => {
         });
       }
 
-      setFormData({ name: "", description: "" });
+      setFormData({ name: "", description: "", questionnaire_id: "" });
       setIsEditing(false);
       setEditingId(null);
       fetchCategories();
@@ -95,6 +125,7 @@ export const CategoryManager = () => {
     setFormData({
       name: category.name,
       description: category.description || "",
+      questionnaire_id: category.questionnaire_id || "",
     });
     setEditingId(category.id);
     setIsEditing(true);
@@ -124,7 +155,7 @@ export const CategoryManager = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", description: "" });
+    setFormData({ name: "", description: "", questionnaire_id: "" });
     setIsEditing(false);
     setEditingId(null);
   };
@@ -158,6 +189,25 @@ export const CategoryManager = () => {
                 rows={3}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="questionnaire">Questionnaire</Label>
+              <Select 
+                value={formData.questionnaire_id} 
+                onValueChange={(value) => setFormData({ ...formData, questionnaire_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a questionnaire (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No specific questionnaire</SelectItem>
+                  {questionnaires.map((questionnaire) => (
+                    <SelectItem key={questionnaire.id} value={questionnaire.id}>
+                      {questionnaire.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>
                 {loading ? 'Saving...' : isEditing ? 'Update' : 'Create'}
@@ -187,6 +237,11 @@ export const CategoryManager = () => {
                   <h4 className="font-medium">{category.name}</h4>
                   {category.description && (
                     <p className="text-sm text-muted-foreground">{category.description}</p>
+                  )}
+                  {(category as any).questionnaires?.title && (
+                    <p className="text-xs text-primary">
+                      Questionnaire: {(category as any).questionnaires.title}
+                    </p>
                   )}
                 </div>
                 <div className="flex gap-2">

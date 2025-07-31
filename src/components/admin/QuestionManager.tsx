@@ -86,6 +86,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
     const { data, error } = await supabase
       .from('categories')
       .select('id, name')
+      .or(`questionnaire_id.eq.${questionnaireId},questionnaire_id.is.null`)
       .order('name');
 
     if (error) {
