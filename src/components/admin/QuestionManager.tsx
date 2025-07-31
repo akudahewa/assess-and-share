@@ -1,0 +1,344 @@
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { ArrowLeft, Edit, Trash2, Plus } from "lucide-react";
+
+interface Question {
+  id: string;
+  text: string;
+  type: string;
+  options: any;
+  order_number: number;
+  category_id: string;
+  categories: { name: string } | null;
+}
+
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface QuestionManagerProps {
+  questionnaireId: string;
+  onBack: () => void;
+}
+
+export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProps) => {
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    text: "",
+    type: "multiple_choice",
+    category_id: "",
+    options: ["", "", "", ""],
+  });
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchQuestions();
+    fetchCategories();
+  }, [questionnaireId]);
+
+  const fetchQuestions = async () => {
+    const { data, error } = await supabase
+      .from('questions')
+      .select(`
+        *,
+        categories(name)
+      `)
+      .eq('questionnaire_id', questionnaireId)
+      .order('order_number');
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch questions",
+        variant: "destructive",
+      });
+    } else {
+      setQuestions(data || []);
+    }
+  };
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id, name')
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching categories:', error);
+    } else {
+      setCategories(data || []);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const nextOrderNumber = Math.max(0, ...questions.map(q => q.order_number)) + 1;
+      
+      const submitData = {
+        questionnaire_id: questionnaireId,
+        category_id: formData.category_id,
+        text: formData.text,
+        type: formData.type,
+        options: formData.type === 'multiple_choice' ? formData.options.filter(opt => opt.trim()) : null,
+        order_number: editingId ? undefined : nextOrderNumber,
+      };
+
+      if (editingId) {
+        const { error } = await supabase
+          .from('questions')
+          .update(submitData)
+          .eq('id', editingId);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Question updated successfully",
+        });
+      } else {
+        const { error } = await supabase
+          .from('questions')
+          .insert([submitData]);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Question created successfully",
+        });
+      }
+
+      setFormData({
+        text: "",
+        type: "multiple_choice",
+        category_id: "",
+        options: ["", "", "", ""],
+      });
+      setIsEditing(false);
+      setEditingId(null);
+      fetchQuestions();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (question: Question) => {
+    setFormData({
+      text: question.text,
+      type: question.type,
+      category_id: question.category_id,
+      options: question.options || ["", "", "", ""],
+    });
+    setEditingId(question.id);
+    setIsEditing(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this question?")) return;
+
+    const { error } = await supabase
+      .from('questions')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete question",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Question deleted successfully",
+      });
+      fetchQuestions();
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      text: "",
+      type: "multiple_choice",
+      category_id: "",
+      options: ["", "", "", ""],
+    });
+    setIsEditing(false);
+    setEditingId(null);
+  };
+
+  const updateOption = (index: number, value: string) => {
+    const newOptions = [...formData.options];
+    newOptions[index] = value;
+    setFormData({ ...formData, options: newOptions });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="outline" onClick={onBack}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Questionnaires
+        </Button>
+        <h2 className="text-2xl font-bold">Manage Questions</h2>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{isEditing ? 'Edit Question' : 'Add New Question'}</CardTitle>
+          <CardDescription>
+            Create questions for this questionnaire
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="text">Question Text</Label>
+              <Textarea
+                id="text"
+                value={formData.text}
+                onChange={(e) => setFormData({ ...formData, text: e.target.value })}
+                rows={3}
+                required
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category_id">Category</Label>
+                <Select
+                  value={formData.category_id}
+                  onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="type">Question Type</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) => setFormData({ ...formData, type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                    <SelectItem value="text">Text</SelectItem>
+                    <SelectItem value="rating">Rating</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {formData.type === 'multiple_choice' && (
+              <div className="space-y-2">
+                <Label>Answer Options</Label>
+                {formData.options.map((option, index) => (
+                  <Input
+                    key={index}
+                    value={option}
+                    onChange={(e) => updateOption(index, e.target.value)}
+                    placeholder={`Option ${index + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+            
+            <div className="flex gap-2">
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Saving...' : isEditing ? 'Update' : 'Create'}
+              </Button>
+              {isEditing && (
+                <Button type="button" variant="outline" onClick={resetForm}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Questions</CardTitle>
+          <CardDescription>
+            Manage questions for this questionnaire
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {questions.map((question) => (
+              <div key={question.id} className="flex items-start justify-between p-4 border rounded-lg">
+                <div className="flex-1">
+                  <h4 className="font-medium">{question.text}</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Category: {question.categories?.name} | Type: {question.type}
+                  </p>
+                  {question.options && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Options: {question.options.join(', ')}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(question)}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(question.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {questions.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">
+                No questions found. Create your first question above.
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
