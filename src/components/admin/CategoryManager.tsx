@@ -29,7 +29,7 @@ export const CategoryManager = () => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    questionnaire_id: "",
+    questionnaire_id: "none",
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -81,10 +81,16 @@ export const CategoryManager = () => {
     setLoading(true);
 
     try {
+      // Convert "none" back to null for database storage
+      const submitData = {
+        ...formData,
+        questionnaire_id: formData.questionnaire_id === "none" ? null : formData.questionnaire_id
+      };
+
       if (editingId) {
         const { error } = await supabase
           .from('categories')
-          .update(formData)
+          .update(submitData)
           .eq('id', editingId);
 
         if (error) throw error;
@@ -96,7 +102,7 @@ export const CategoryManager = () => {
       } else {
         const { error } = await supabase
           .from('categories')
-          .insert([formData]);
+          .insert([submitData]);
 
         if (error) throw error;
 
@@ -106,7 +112,7 @@ export const CategoryManager = () => {
         });
       }
 
-      setFormData({ name: "", description: "", questionnaire_id: "" });
+      setFormData({ name: "", description: "", questionnaire_id: "none" });
       setIsEditing(false);
       setEditingId(null);
       fetchCategories();
@@ -125,7 +131,7 @@ export const CategoryManager = () => {
     setFormData({
       name: category.name,
       description: category.description || "",
-      questionnaire_id: category.questionnaire_id || "",
+      questionnaire_id: category.questionnaire_id || "none",
     });
     setEditingId(category.id);
     setIsEditing(true);
@@ -155,7 +161,7 @@ export const CategoryManager = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", description: "", questionnaire_id: "" });
+    setFormData({ name: "", description: "", questionnaire_id: "none" });
     setIsEditing(false);
     setEditingId(null);
   };
@@ -199,7 +205,7 @@ export const CategoryManager = () => {
                   <SelectValue placeholder="Select a questionnaire (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No specific questionnaire</SelectItem>
+                  <SelectItem value="none">No specific questionnaire</SelectItem>
                   {questionnaires.map((questionnaire) => (
                     <SelectItem key={questionnaire.id} value={questionnaire.id}>
                       {questionnaire.title}
