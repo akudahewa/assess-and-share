@@ -108,7 +108,7 @@ export const ScoringRulesManager = () => {
     try {
       const submitData = {
         questionnaire_id: formData.questionnaire_id,
-        category_id: formData.category_id || null,
+        category_id: formData.category_id === "all" ? null : formData.category_id || null,
         min_percentage: parseFloat(formData.min_percentage),
         max_percentage: parseFloat(formData.max_percentage),
         level_name: formData.level_name,
@@ -165,7 +165,7 @@ export const ScoringRulesManager = () => {
   const handleEdit = (rule: ScoringRule) => {
     setFormData({
       questionnaire_id: rule.questionnaire_id,
-      category_id: rule.category_id || "",
+      category_id: rule.category_id || "all",
       min_percentage: rule.min_percentage.toString(),
       max_percentage: rule.max_percentage.toString(),
       level_name: rule.level_name,
@@ -252,7 +252,7 @@ export const ScoringRulesManager = () => {
                     <SelectValue placeholder="Select category (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Categories</SelectItem>
+                    <SelectItem value="all">All Categories</SelectItem>
                     {categories.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
