@@ -9,6 +9,11 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Edit, Trash2, Plus } from "lucide-react";
 
+interface AnswerOption {
+  text: string;
+  score: number;
+}
+
 interface Question {
   id: string;
   text: string;
@@ -38,7 +43,12 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
     text: "",
     type: "multiple_choice",
     category_id: "",
-    options: ["", "", "", ""],
+    options: [
+      { text: "", score: 1 },
+      { text: "", score: 2 },
+      { text: "", score: 3 },
+      { text: "", score: 4 },
+    ] as AnswerOption[],
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -65,7 +75,10 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
         variant: "destructive",
       });
     } else {
-      setQuestions(data || []);
+      setQuestions((data || []).map(q => ({
+        ...q,
+        options: q.options as any
+      })));
     }
   };
 
@@ -94,7 +107,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
         category_id: formData.category_id,
         text: formData.text,
         type: formData.type,
-        options: formData.type === 'multiple_choice' ? formData.options.filter(opt => opt.trim()) : null,
+        options: formData.type === 'multiple_choice' ? formData.options.filter(opt => opt.text.trim()) as any : null,
         order_number: editingId ? undefined : nextOrderNumber,
       };
 
@@ -113,7 +126,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
       } else {
         const { error } = await supabase
           .from('questions')
-          .insert([submitData]);
+          .insert([submitData as any]);
 
         if (error) throw error;
 
@@ -127,7 +140,12 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
         text: "",
         type: "multiple_choice",
         category_id: "",
-        options: ["", "", "", ""],
+        options: [
+          { text: "", score: 1 },
+          { text: "", score: 2 },
+          { text: "", score: 3 },
+          { text: "", score: 4 },
+        ],
       });
       setIsEditing(false);
       setEditingId(null);
@@ -148,7 +166,12 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
       text: question.text,
       type: question.type,
       category_id: question.category_id,
-      options: question.options || ["", "", "", ""],
+      options: (question.options as AnswerOption[]) || [
+        { text: "", score: 1 },
+        { text: "", score: 2 },
+        { text: "", score: 3 },
+        { text: "", score: 4 },
+      ],
     });
     setEditingId(question.id);
     setIsEditing(true);
@@ -182,16 +205,33 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
       text: "",
       type: "multiple_choice",
       category_id: "",
-      options: ["", "", "", ""],
+      options: [
+        { text: "", score: 1 },
+        { text: "", score: 2 },
+        { text: "", score: 3 },
+        { text: "", score: 4 },
+      ],
     });
     setIsEditing(false);
     setEditingId(null);
   };
 
-  const updateOption = (index: number, value: string) => {
+  const updateOption = (index: number, field: 'text' | 'score', value: string | number) => {
     const newOptions = [...formData.options];
-    newOptions[index] = value;
+    newOptions[index] = { ...newOptions[index], [field]: value };
     setFormData({ ...formData, options: newOptions });
+  };
+
+  const addOption = () => {
+    const newOptions = [...formData.options, { text: "", score: formData.options.length + 1 }];
+    setFormData({ ...formData, options: newOptions });
+  };
+
+  const removeOption = (index: number) => {
+    if (formData.options.length > 2) {
+      const newOptions = formData.options.filter((_, i) => i !== index);
+      setFormData({ ...formData, options: newOptions });
+    }
   };
 
   return (
@@ -265,14 +305,42 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
 
             {formData.type === 'multiple_choice' && (
               <div className="space-y-2">
-                <Label>Answer Options</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Answer Options</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addOption}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Option
+                  </Button>
+                </div>
                 {formData.options.map((option, index) => (
-                  <Input
-                    key={index}
-                    value={option}
-                    onChange={(e) => updateOption(index, e.target.value)}
-                    placeholder={`Option ${index + 1}`}
-                  />
+                  <div key={index} className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <Input
+                        value={option.text}
+                        onChange={(e) => updateOption(index, 'text', e.target.value)}
+                        placeholder={`Option ${index + 1}`}
+                      />
+                    </div>
+                    <div className="w-20">
+                      <Input
+                        type="number"
+                        value={option.score}
+                        onChange={(e) => updateOption(index, 'score', parseInt(e.target.value) || 0)}
+                        placeholder="Score"
+                        min="0"
+                      />
+                    </div>
+                    {formData.options.length > 2 && (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => removeOption(index)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
@@ -309,7 +377,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
                   </p>
                   {question.options && (
                     <div className="mt-2 text-xs text-muted-foreground">
-                      Options: {question.options.join(', ')}
+                      Options: {(question.options as AnswerOption[]).map(opt => `${opt.text} (${opt.score})`).join(', ')}
                     </div>
                   )}
                 </div>

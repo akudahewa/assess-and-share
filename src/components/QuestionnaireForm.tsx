@@ -6,10 +6,16 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+export interface AnswerOption {
+  text: string;
+  score: number;
+}
+
 export interface Question {
   id: string;
   text: string;
   category: string;
+  options?: AnswerOption[];
 }
 
 export interface QuestionnaireData {
@@ -43,11 +49,14 @@ export const QuestionnaireForm = ({ questionnaire, onComplete, onBack }: Questio
   const currentQuestion = allQuestions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / allQuestions.length) * 100;
 
-  const handleAnswer = (value: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [currentQuestion.id]: parseInt(value)
-    }));
+  const handleAnswer = (optionIndex: string) => {
+    const selectedOption = currentQuestion.options?.[parseInt(optionIndex)];
+    if (selectedOption) {
+      setAnswers(prev => ({
+        ...prev,
+        [currentQuestion.id]: selectedOption.score
+      }));
+    }
   };
 
   const handleNext = () => {
@@ -67,13 +76,11 @@ export const QuestionnaireForm = ({ questionnaire, onComplete, onBack }: Questio
   const canProceed = answers[currentQuestion.id] !== undefined;
   const isLastQuestion = currentQuestionIndex === allQuestions.length - 1;
 
-  const scaleLabels = [
-    { value: 1, label: "Strongly Disagree" },
-    { value: 2, label: "Disagree" },
-    { value: 3, label: "Neutral" },
-    { value: 4, label: "Agree" },
-    { value: 5, label: "Strongly Agree" }
-  ];
+  const getSelectedOptionIndex = () => {
+    const currentScore = answers[currentQuestion.id];
+    if (currentScore === undefined) return "";
+    return currentQuestion.options?.findIndex(opt => opt.score === currentScore)?.toString() || "";
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface to-surface-variant">
@@ -111,28 +118,28 @@ export const QuestionnaireForm = ({ questionnaire, onComplete, onBack }: Questio
             </CardHeader>
             <CardContent className="space-y-6">
               <RadioGroup
-                value={answers[currentQuestion.id]?.toString() || ""}
+                value={getSelectedOptionIndex()}
                 onValueChange={handleAnswer}
                 className="space-y-4"
               >
-                {scaleLabels.map((option) => (
-                  <div key={option.value} className="flex items-center space-x-3">
+                {currentQuestion.options?.map((option, index) => (
+                  <div key={index} className="flex items-center space-x-3">
                     <RadioGroupItem
-                      value={option.value.toString()}
-                      id={`option-${option.value}`}
+                      value={index.toString()}
+                      id={`option-${index}`}
                       className="border-2"
                     />
                     <Label
-                      htmlFor={`option-${option.value}`}
+                      htmlFor={`option-${index}`}
                       className="flex-1 cursor-pointer py-2 px-3 rounded-md hover:bg-accent transition-colors"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">{option.label}</span>
-                        <span className="text-sm text-muted-foreground">({option.value})</span>
+                        <span className="font-medium">{option.text}</span>
+                        <span className="text-sm text-muted-foreground">({option.score})</span>
                       </div>
                     </Label>
                   </div>
-                ))}
+                )) || []}
               </RadioGroup>
             </CardContent>
           </Card>
