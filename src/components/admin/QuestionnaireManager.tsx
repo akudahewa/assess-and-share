@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Edit, Trash2, Settings } from "lucide-react";
+import { Plus, Edit, Trash2, Settings, Power } from "lucide-react";
 import { QuestionManager } from "./QuestionManager";
 
 interface Questionnaire {
@@ -137,6 +137,37 @@ export const QuestionnaireManager = () => {
     setEditingId(null);
   };
 
+  const handleActivate = async (questionnaireId: string) => {
+    try {
+      // First, deactivate all questionnaires
+      await supabase
+        .from('questionnaires')
+        .update({ is_active: false })
+        .neq('id', 'dummy'); // Update all rows
+
+      // Then activate the selected questionnaire
+      const { error } = await supabase
+        .from('questionnaires')
+        .update({ is_active: true })
+        .eq('id', questionnaireId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Questionnaire activated successfully",
+      });
+
+      fetchQuestionnaires();
+    } catch (error: any) {
+      toast({
+        title: "Error", 
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   if (showQuestions) {
     return (
       <QuestionManager 
@@ -218,6 +249,15 @@ export const QuestionnaireManager = () => {
                   </p>
                 </div>
                 <div className="flex gap-2">
+                  <Button
+                    variant={questionnaire.is_active ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleActivate(questionnaire.id)}
+                    disabled={questionnaire.is_active}
+                  >
+                    <Power className="w-4 h-4 mr-1" />
+                    {questionnaire.is_active ? "Active" : "Activate"}
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
