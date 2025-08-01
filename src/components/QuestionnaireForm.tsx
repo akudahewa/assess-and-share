@@ -19,6 +19,7 @@ export interface Question {
 }
 
 export interface QuestionnaireData {
+  title?: string;
   categories: {
     [key: string]: {
       name: string;

@@ -22,6 +22,7 @@ export interface AssessmentResults {
     email: string;
     date: string;
   };
+  questionnaireName?: string;
   scores: CategoryScore[];
   overallScore: number;
   reflections: {

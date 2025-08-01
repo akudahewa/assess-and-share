@@ -35,7 +35,7 @@ const Assessment = () => {
       // Get the first active questionnaire
       const { data: questionnaires } = await supabase
         .from('questionnaires')
-        .select('id')
+        .select('id, title')
         .eq('is_active', true)
         .limit(1);
 
@@ -64,6 +64,7 @@ const Assessment = () => {
 
       // Transform data into required format
       const questionnaireData: QuestionnaireData = {
+        title: questionnaires[0].title,
         categories: {}
       };
 
@@ -138,6 +139,7 @@ const Assessment = () => {
 
     return {
       userInfo,
+      questionnaireName: questionnaire.title || "Assessment",
       scores,
       overallScore,
       reflections: {} // Would be populated with user reflections

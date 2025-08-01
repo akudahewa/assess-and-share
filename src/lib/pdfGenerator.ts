@@ -58,26 +58,26 @@ export const generatePDFReport = async (results: AssessmentResults): Promise<voi
     pdf.setFontSize(24);
     pdf.setFont('helvetica', 'bold');
     pdf.text('Personal Assessment Report', pageWidth / 2, 25, { align: 'center' });
-    pdf.text('Emotional Intelligence Profile', pageWidth / 2, 40, { align: 'center' });
+    pdf.text(results.questionnaireName || 'Assessment', pageWidth / 2, 40, { align: 'center' });
     
     // Reset color
     pdf.setTextColor(0, 0, 0);
     
     // Add user info box
     pdf.setFillColor(245, 245, 245);
-    pdf.rect(20, 70, pageWidth - 40, 40, 'F');
+    pdf.rect(20, 70, pageWidth - 40, 45, 'F');
     pdf.setDrawColor(200, 200, 200);
-    pdf.rect(20, 70, pageWidth - 40, 40, 'S');
+    pdf.rect(20, 70, pageWidth - 40, 45, 'S');
     
     pdf.setFontSize(14);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Assessment Details', 30, 85);
+    pdf.text('Assessment Details', 25, 85);
     
     pdf.setFontSize(11);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(`Name: ${results.userInfo.name}`, 30, 95);
-    pdf.text(`Email: ${results.userInfo.email}`, 30, 102);
-    pdf.text(`Date: ${results.userInfo.date}`, 30, 109);
+    pdf.text(`Name: ${results.userInfo.name}`, 25, 98);
+    pdf.text(`Email: ${results.userInfo.email}`, 25, 106);
+    pdf.text(`Date: ${results.userInfo.date}`, 25, 114);
     
     // Add overall score section
     pdf.setFontSize(18);
@@ -114,21 +114,22 @@ export const generatePDFReport = async (results: AssessmentResults): Promise<voi
     const performanceLevel = results.overallScore >= 75 ? "Excellent" : results.overallScore >= 50 ? "Good" : "Needs Improvement";
     pdf.text(performanceLevel, centerX, centerY + 35, { align: 'center' });
     
-    // Add summary box
+    // Add summary box  
     pdf.setFillColor(249, 250, 251);
-    pdf.rect(20, 220, pageWidth - 40, 50, 'F');
+    pdf.rect(20, 225, pageWidth - 40, 40, 'F');
     pdf.setDrawColor(229, 231, 235);
-    pdf.rect(20, 220, pageWidth - 40, 50, 'S');
+    pdf.rect(20, 225, pageWidth - 40, 40, 'S');
     
     pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Assessment Summary', 30, 235);
+    pdf.text('Assessment Summary', 25, 240);
     
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
-    const summaryText = `This comprehensive emotional intelligence assessment evaluates ${results.scores.length} key competencies. Your overall score of ${results.overallScore}% indicates ${performanceLevel.toLowerCase()} emotional intelligence skills. The following pages provide detailed insights into each category, visual analysis, and personalized recommendations for growth.`;
-    const splitSummary = pdf.splitTextToSize(summaryText, pageWidth - 60);
-    pdf.text(splitSummary, 30, 245);
+    const assessmentName = results.questionnaireName || 'assessment';
+    const summaryText = `This comprehensive ${assessmentName.toLowerCase()} evaluates ${results.scores.length} key competencies. Your overall score of ${results.overallScore}% indicates ${performanceLevel.toLowerCase()} performance. The following pages provide detailed insights into each category, visual analysis, and personalized recommendations for growth.`;
+    const splitSummary = pdf.splitTextToSize(summaryText, pageWidth - 50);
+    pdf.text(splitSummary, 25, 250);
 
     // PAGE 2: Category Breakdown
     let yPos = addPageWithHeader('Category Breakdown & Detailed Analysis');
