@@ -65,19 +65,19 @@ export const generatePDFReport = async (results: AssessmentResults): Promise<voi
     
     // Add user info box
     pdf.setFillColor(245, 245, 245);
-    pdf.rect(20, 70, pageWidth - 40, 45, 'F');
+    pdf.rect(20, 70, pageWidth - 40, 55, 'F');
     pdf.setDrawColor(200, 200, 200);
-    pdf.rect(20, 70, pageWidth - 40, 45, 'S');
+    pdf.rect(20, 70, pageWidth - 40, 55, 'S');
     
     pdf.setFontSize(14);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Assessment Details', 25, 85);
+    pdf.text('Assessment Details', 25, 87);
     
     pdf.setFontSize(11);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(`Name: ${results.userInfo.name}`, 25, 98);
-    pdf.text(`Email: ${results.userInfo.email}`, 25, 106);
-    pdf.text(`Date: ${results.userInfo.date}`, 25, 114);
+    pdf.text(`Name: ${results.userInfo.name}`, 25, 102);
+    pdf.text(`Email: ${results.userInfo.email}`, 25, 110);
+    pdf.text(`Date: ${results.userInfo.date}`, 25, 118);
     
     // Add overall score section
     pdf.setFontSize(18);
@@ -116,20 +116,20 @@ export const generatePDFReport = async (results: AssessmentResults): Promise<voi
     
     // Add summary box  
     pdf.setFillColor(249, 250, 251);
-    pdf.rect(20, 225, pageWidth - 40, 40, 'F');
+    pdf.rect(20, 235, pageWidth - 40, 50, 'F');
     pdf.setDrawColor(229, 231, 235);
-    pdf.rect(20, 225, pageWidth - 40, 40, 'S');
+    pdf.rect(20, 235, pageWidth - 40, 50, 'S');
     
     pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Assessment Summary', 25, 240);
+    pdf.text('Assessment Summary', 25, 250);
     
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
     const assessmentName = results.questionnaireName || 'assessment';
     const summaryText = `This comprehensive ${assessmentName.toLowerCase()} evaluates ${results.scores.length} key competencies. Your overall score of ${results.overallScore}% indicates ${performanceLevel.toLowerCase()} performance. The following pages provide detailed insights into each category, visual analysis, and personalized recommendations for growth.`;
     const splitSummary = pdf.splitTextToSize(summaryText, pageWidth - 50);
-    pdf.text(splitSummary, 25, 250);
+    pdf.text(splitSummary, 25, 262);
 
     // PAGE 2: Category Breakdown
     let yPos = addPageWithHeader('Category Breakdown & Detailed Analysis');
