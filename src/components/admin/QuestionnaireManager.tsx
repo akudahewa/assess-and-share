@@ -139,21 +139,12 @@ export const QuestionnaireManager = () => {
 
   const handleActivate = async (questionnaireId: string) => {
     try {
-      // Use a transaction-like approach: first deactivate all, then activate the selected one
-      const { error: deactivateError } = await supabase
-        .from('questionnaires')
-        .update({ is_active: false })
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // This ensures all rows are updated
+      // Use the database function to ensure only one questionnaire is active
+      const { error } = await supabase.rpc('activate_questionnaire', {
+        questionnaire_id: questionnaireId
+      });
 
-      if (deactivateError) throw deactivateError;
-
-      // Then activate the selected questionnaire
-      const { error: activateError } = await supabase
-        .from('questionnaires')
-        .update({ is_active: true })
-        .eq('id', questionnaireId);
-
-      if (activateError) throw activateError;
+      if (error) throw error;
 
       toast({
         title: "Success",

@@ -251,7 +251,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      activate_questionnaire: {
+        Args: { questionnaire_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
