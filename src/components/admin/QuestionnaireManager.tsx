@@ -139,19 +139,21 @@ export const QuestionnaireManager = () => {
 
   const handleActivate = async (questionnaireId: string) => {
     try {
-      // First, deactivate all questionnaires
-      await supabase
+      // Use a transaction-like approach: first deactivate all, then activate the selected one
+      const { error: deactivateError } = await supabase
         .from('questionnaires')
         .update({ is_active: false })
-        .neq('id', 'dummy'); // Update all rows
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // This ensures all rows are updated
+
+      if (deactivateError) throw deactivateError;
 
       // Then activate the selected questionnaire
-      const { error } = await supabase
+      const { error: activateError } = await supabase
         .from('questionnaires')
         .update({ is_active: true })
         .eq('id', questionnaireId);
 
-      if (error) throw error;
+      if (activateError) throw activateError;
 
       toast({
         title: "Success",
