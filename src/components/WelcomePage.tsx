@@ -24,9 +24,30 @@ export const WelcomePage = ({ onStartAssessment }: WelcomePageProps) => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
+        // First get the active questionnaire
+        const { data: activeQuestionnaire, error: questionnaireError } = await supabase
+          .from('questionnaires')
+          .select('id')
+          .eq('is_active', true)
+          .single();
+
+        if (questionnaireError) {
+          console.error('Error fetching active questionnaire:', questionnaireError);
+          setLoading(false);
+          return;
+        }
+
+        if (!activeQuestionnaire) {
+          console.log('No active questionnaire found');
+          setLoading(false);
+          return;
+        }
+
+        // Then get categories for that questionnaire
         const { data, error } = await supabase
           .from('categories')
           .select('id, name, description, icon_url')
+          .eq('questionnaire_id', activeQuestionnaire.id)
           .order('name');
 
         if (error) {
