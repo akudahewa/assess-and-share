@@ -2,8 +2,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Download, Mail, RotateCcw, TrendingUp, Target, Lightbulb } from "lucide-react";
+import { Download, Mail, RotateCcw, TrendingUp, Target, Lightbulb, Radar, Zap } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { SpiralChart } from "./charts/SpiralChart";
+import { RadarChart } from "./charts/RadarChart";
 
 export interface CategoryScore {
   category: string;
@@ -47,6 +49,12 @@ export const ResultsPage = ({ results, onRestart, onDownloadPDF, onEmailReport }
   const chartData = results.scores.map(score => ({
     name: score.category,
     value: score.percentage,
+    color: score.color
+  }));
+
+  const spiralRadarData = results.scores.map(score => ({
+    category: score.category,
+    percentage: score.percentage,
     color: score.color
   }));
 
@@ -224,6 +232,38 @@ export const ResultsPage = ({ results, onRestart, onDownloadPDF, onEmailReport }
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Radar Chart */}
+              <Card className="shadow-soft border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Radar className="h-5 w-5 text-primary" />
+                    Pentagon Analysis
+                  </CardTitle>
+                  <CardDescription>
+                    Multi-dimensional view of your emotional intelligence profile
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-center">
+                  <RadarChart data={spiralRadarData} width={320} height={320} />
+                </CardContent>
+              </Card>
+
+              {/* Spiral Chart */}
+              <Card className="shadow-soft border-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-primary" />
+                    Growth Spiral
+                  </CardTitle>
+                  <CardDescription>
+                    Your development journey across all competencies
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-center">
+                  <SpiralChart data={spiralRadarData} width={320} height={320} />
                 </CardContent>
               </Card>
 
