@@ -5,79 +5,242 @@ import { AssessmentResults } from '@/components/ResultsPage';
 export const generatePDFReport = async (results: AssessmentResults): Promise<void> => {
   try {
     const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    
+    // Helper function to add a new page with header
+    const addPageWithHeader = (title: string) => {
+      pdf.addPage();
+      // Add header line
+      pdf.setFillColor(59, 130, 246);
+      pdf.rect(0, 0, pageWidth, 15, 'F');
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(title, pageWidth / 2, 10, { align: 'center' });
+      pdf.setTextColor(0, 0, 0);
+      return 25; // Starting Y position
+    };
+
+    // Capture charts as images
+    const captureChart = async (selector: string): Promise<string | null> => {
+      try {
+        const element = document.querySelector(selector);
+        if (!element) return null;
+        
+        const canvas = await html2canvas(element as HTMLElement, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          useCORS: true,
+        });
+        return canvas.toDataURL('image/png');
+      } catch (error) {
+        console.warn(`Failed to capture chart ${selector}:`, error);
+        return null;
+      }
+    };
+
+    // Try to capture all charts
+    const [pieChartImg, barChartImg, radarChartImg, spiralChartImg] = await Promise.all([
+      captureChart('.recharts-wrapper'),
+      captureChart('[data-chart="bar"]'),
+      captureChart('[data-chart="radar"]'),
+      captureChart('[data-chart="spiral"]')
+    ]);
+
+    // PAGE 1: Cover Page
+    // Add header background
+    pdf.setFillColor(59, 130, 246);
+    pdf.rect(0, 0, pageWidth, 50, 'F');
     
     // Add title
-    pdf.setFontSize(20);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Personal Assessment Report', 20, 30);
-    
-    // Add user info
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`Name: ${results.userInfo.name}`, 20, 50);
-    pdf.text(`Email: ${results.userInfo.email}`, 20, 60);
-    pdf.text(`Date: ${results.userInfo.date}`, 20, 70);
-    
-    // Add overall score
-    pdf.setFontSize(16);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Overall Score', 20, 90);
+    pdf.setTextColor(255, 255, 255);
     pdf.setFontSize(24);
-    pdf.setTextColor(59, 130, 246); // Blue color
-    pdf.text(`${results.overallScore}%`, 20, 105);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Personal Assessment Report', pageWidth / 2, 25, { align: 'center' });
+    pdf.text('Emotional Intelligence Profile', pageWidth / 2, 40, { align: 'center' });
     
     // Reset color
     pdf.setTextColor(0, 0, 0);
     
-    // Add category breakdown
+    // Add user info box
+    pdf.setFillColor(245, 245, 245);
+    pdf.rect(20, 70, pageWidth - 40, 40, 'F');
+    pdf.setDrawColor(200, 200, 200);
+    pdf.rect(20, 70, pageWidth - 40, 40, 'S');
+    
+    pdf.setFontSize(14);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Assessment Details', 30, 85);
+    
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(`Name: ${results.userInfo.name}`, 30, 95);
+    pdf.text(`Email: ${results.userInfo.email}`, 30, 102);
+    pdf.text(`Date: ${results.userInfo.date}`, 30, 109);
+    
+    // Add overall score section
+    pdf.setFontSize(18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Overall Performance', pageWidth / 2, 140, { align: 'center' });
+    
+    // Large score circle
+    const centerX = pageWidth / 2;
+    const centerY = 170;
+    const radius = 25;
+    
+    // Background circle
+    pdf.setFillColor(240, 240, 240);
+    pdf.circle(centerX, centerY, radius, 'F');
+    
+    // Score circle based on performance
+    let scoreColor: [number, number, number] = [59, 130, 246]; // Default blue
+    if (results.overallScore >= 75) scoreColor = [34, 197, 94]; // Green
+    else if (results.overallScore >= 50) scoreColor = [249, 115, 22]; // Orange
+    else scoreColor = [239, 68, 68]; // Red
+    
+    pdf.setFillColor(...scoreColor);
+    pdf.circle(centerX, centerY, radius * 0.9, 'F');
+    
+    // Score text
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(20);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`${results.overallScore}%`, centerX, centerY + 3, { align: 'center' });
+    
+    // Performance level
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFontSize(12);
+    const performanceLevel = results.overallScore >= 75 ? "Excellent" : results.overallScore >= 50 ? "Good" : "Needs Improvement";
+    pdf.text(performanceLevel, centerX, centerY + 35, { align: 'center' });
+    
+    // Add summary box
+    pdf.setFillColor(249, 250, 251);
+    pdf.rect(20, 220, pageWidth - 40, 50, 'F');
+    pdf.setDrawColor(229, 231, 235);
+    pdf.rect(20, 220, pageWidth - 40, 50, 'S');
+    
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Assessment Summary', 30, 235);
+    
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    const summaryText = `This comprehensive emotional intelligence assessment evaluates ${results.scores.length} key competencies. Your overall score of ${results.overallScore}% indicates ${performanceLevel.toLowerCase()} emotional intelligence skills. The following pages provide detailed insights into each category, visual analysis, and personalized recommendations for growth.`;
+    const splitSummary = pdf.splitTextToSize(summaryText, pageWidth - 60);
+    pdf.text(splitSummary, 30, 245);
+
+    // PAGE 2: Category Breakdown
+    let yPos = addPageWithHeader('Category Breakdown & Detailed Analysis');
+    
     pdf.setFontSize(16);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Category Breakdown', 20, 125);
+    pdf.text('Category Performance Breakdown', 20, yPos);
+    yPos += 20;
     
-    let yPosition = 140;
-    results.scores.forEach((score) => {
-      pdf.setFontSize(12);
+    // Category details with enhanced styling
+    results.scores.forEach((score, index) => {
+      if (yPos > 240) {
+        yPos = addPageWithHeader('Category Breakdown & Detailed Analysis (continued)');
+      }
+      
+      // Category header with color accent
+      const rgb = hexToRgb(score.color);
+      if (rgb) {
+        pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+        pdf.rect(20, yPos - 5, 3, 15, 'F');
+      }
+      
+      pdf.setFontSize(13);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(score.category, 20, yPosition);
+      pdf.text(score.category, 28, yPos + 3);
       
+      // Score and level
+      pdf.setFontSize(10);
       pdf.setFont('helvetica', 'normal');
-      pdf.text(`Score: ${score.score}/${score.maxScore} (${score.percentage}%)`, 20, yPosition + 10);
-      pdf.text(`Level: ${score.level}`, 20, yPosition + 20);
+      pdf.text(`Score: ${score.score}/${score.maxScore}`, 28, yPos + 12);
+      pdf.text(`Percentage: ${score.percentage}%`, 100, yPos + 12);
+      pdf.text(`Level: ${score.level}`, 150, yPos + 12);
       
-      // Add progress bar representation
-      const barWidth = 100;
-      const barHeight = 5;
+      // Enhanced progress bar
+      const barY = yPos + 18;
+      const barWidth = 150;
+      const barHeight = 8;
       const fillWidth = (score.percentage / 100) * barWidth;
       
-      // Background bar
-      pdf.setFillColor(230, 230, 230);
-      pdf.rect(20, yPosition + 25, barWidth, barHeight, 'F');
+      // Background bar with border
+      pdf.setFillColor(240, 240, 240);
+      pdf.roundedRect(28, barY, barWidth, barHeight, 2, 2, 'F');
+      pdf.setDrawColor(200, 200, 200);
+      pdf.roundedRect(28, barY, barWidth, barHeight, 2, 2, 'S');
       
       // Fill bar
-      let fillColor: [number, number, number] = [59, 130, 246]; // Default blue
-      if (score.level === "High") fillColor = [34, 197, 94]; // Green
-      else if (score.level === "Medium") fillColor = [249, 115, 22]; // Orange
-      else if (score.level === "Low") fillColor = [239, 68, 68]; // Red
-      
-      pdf.setFillColor(...fillColor);
-      pdf.rect(20, yPosition + 25, fillWidth, barHeight, 'F');
-      
-      yPosition += 45;
-      
-      // Add new page if needed
-      if (yPosition > 250) {
-        pdf.addPage();
-        yPosition = 30;
+      if (rgb) {
+        pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+        if (fillWidth > 0) {
+          pdf.roundedRect(28, barY, fillWidth, barHeight, 2, 2, 'F');
+        }
       }
+      
+      yPos += 35;
     });
+
+    // PAGE 3: Visual Analysis (Charts)
+    yPos = addPageWithHeader('Visual Analysis & Charts');
     
-    // Add reflection questions on new page
-    pdf.addPage();
     pdf.setFontSize(16);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Self-Reflection Questions', 20, 30);
+    pdf.text('Performance Visualization', 20, yPos);
+    yPos += 15;
     
-    yPosition = 50;
+    // Add charts if captured
+    const chartWidth = 80;
+    const chartHeight = 60;
+    const chartSpacing = 10;
+    
+    if (pieChartImg) {
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Overall Distribution', 20, yPos);
+      pdf.addImage(pieChartImg, 'PNG', 20, yPos + 5, chartWidth, chartHeight);
+    }
+    
+    if (barChartImg) {
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Score Comparison', 110, yPos);
+      pdf.addImage(barChartImg, 'PNG', 110, yPos + 5, chartWidth, chartHeight);
+    }
+    
+    yPos += chartHeight + 20;
+    
+    if (radarChartImg) {
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Pentagon Analysis', 20, yPos);
+      pdf.addImage(radarChartImg, 'PNG', 20, yPos + 5, chartWidth, chartHeight);
+    }
+    
+    if (spiralChartImg) {
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Growth Spiral', 110, yPos);
+      pdf.addImage(spiralChartImg, 'PNG', 110, yPos + 5, chartWidth, chartHeight);
+    }
+
+    // PAGE 4+: Reflection Questions
+    yPos = addPageWithHeader('Self-Reflection Questions & Development Guide');
+    
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Personal Development Questions', 20, yPos);
+    yPos += 10;
+    
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('Take time to reflect on these questions to deepen your self-awareness and plan your development journey.', 20, yPos);
+    yPos += 20;
+    
     const reflectionQuestions = {
       "Social Skills": [
         "How do you typically respond when someone disagrees with you?",
@@ -107,41 +270,58 @@ export const generatePDFReport = async (results: AssessmentResults): Promise<voi
     };
     
     results.scores.forEach((score) => {
-      if (yPosition > 250) {
-        pdf.addPage();
-        yPosition = 30;
+      if (yPos > 240) {
+        yPos = addPageWithHeader('Self-Reflection Questions (continued)');
       }
       
-      pdf.setFontSize(14);
+      // Category with color accent
+      const rgb = hexToRgb(score.color);
+      if (rgb) {
+        pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+        pdf.rect(20, yPos - 3, 3, 12, 'F');
+      }
+      
+      pdf.setFontSize(13);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(score.category, 20, yPosition);
-      yPosition += 15;
+      pdf.text(score.category, 28, yPos + 3);
+      yPos += 15;
       
       const questions = reflectionQuestions[score.category as keyof typeof reflectionQuestions] || [];
       questions.forEach((question) => {
-        pdf.setFontSize(10);
+        pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
-        const lines = pdf.splitTextToSize(`• ${question}`, 170);
-        pdf.text(lines, 25, yPosition);
-        yPosition += lines.length * 5 + 5;
+        const lines = pdf.splitTextToSize(`• ${question}`, 160);
+        pdf.text(lines, 30, yPos);
+        yPos += lines.length * 4 + 3;
         
-        if (yPosition > 270) {
-          pdf.addPage();
-          yPosition = 30;
+        if (yPos > 270) {
+          yPos = addPageWithHeader('Self-Reflection Questions (continued)');
         }
       });
       
-      yPosition += 10;
+      yPos += 8;
     });
     
-    // Add footer
+    // Add footer to all pages
     const pageCount = pdf.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       pdf.setPage(i);
+      
+      // Footer background
+      pdf.setFillColor(249, 250, 251);
+      pdf.rect(0, pageHeight - 15, pageWidth, 15, 'F');
+      
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'normal');
-      pdf.text(`Page ${i} of ${pageCount}`, 180, 285);
-      pdf.text('Generated by Personal Assessment Platform', 20, 285);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Page ${i} of ${pageCount}`, pageWidth - 30, pageHeight - 8);
+      pdf.text('Generated by Personal Assessment Platform', 20, pageHeight - 8);
+      
+      // Add generation timestamp on last page
+      if (i === pageCount) {
+        const timestamp = new Date().toLocaleString();
+        pdf.text(`Generated on: ${timestamp}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+      }
     }
     
     // Download the PDF
@@ -153,3 +333,13 @@ export const generatePDFReport = async (results: AssessmentResults): Promise<voi
     throw new Error('Failed to generate PDF report');
   }
 };
+
+// Helper function to convert hex to RGB
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}

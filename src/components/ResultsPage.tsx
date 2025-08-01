@@ -213,7 +213,7 @@ export const ResultsPage = ({ results, onRestart, onDownloadPDF, onEmailReport }
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64">
+                  <div className="h-64" data-chart="bar">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={barChartData}>
                         <CartesianGrid strokeDasharray="3 3" />
@@ -246,7 +246,7 @@ export const ResultsPage = ({ results, onRestart, onDownloadPDF, onEmailReport }
                     Multi-dimensional view of your emotional intelligence profile
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex justify-center">
+                <CardContent className="flex justify-center" data-chart="radar">
                   <RadarChart data={spiralRadarData} width={320} height={320} />
                 </CardContent>
               </Card>
@@ -262,7 +262,7 @@ export const ResultsPage = ({ results, onRestart, onDownloadPDF, onEmailReport }
                     Your development journey across all competencies
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex justify-center">
+                <CardContent className="flex justify-center" data-chart="spiral">
                   <SpiralChart data={spiralRadarData} width={320} height={320} />
                 </CardContent>
               </Card>
