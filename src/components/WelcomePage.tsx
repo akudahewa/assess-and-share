@@ -19,6 +19,8 @@ export const WelcomePage = ({ onStartAssessment }: WelcomePageProps) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
+  console.log('WelcomePage component loaded - categories:', categories.length);
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
