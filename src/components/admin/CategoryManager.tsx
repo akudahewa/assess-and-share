@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,13 +7,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Upload, X } from "lucide-react";
 
 interface Category {
   id: string;
   name: string;
   description: string | null;
   questionnaire_id: string | null;
+  icon_url: string | null;
 }
 
 interface Questionnaire {
@@ -30,8 +31,13 @@ export const CategoryManager = () => {
     name: "",
     description: "",
     questionnaire_id: "none",
+    icon_url: "",
   });
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -81,10 +87,21 @@ export const CategoryManager = () => {
     setLoading(true);
 
     try {
+      // Upload icon if a new file is selected
+      let iconUrl = formData.icon_url;
+      if (selectedFile) {
+        iconUrl = await handleIconUpload();
+        if (iconUrl === null) {
+          setLoading(false);
+          return;
+        }
+      }
+
       // Convert "none" back to null for database storage
       const submitData = {
         ...formData,
-        questionnaire_id: formData.questionnaire_id === "none" ? null : formData.questionnaire_id
+        questionnaire_id: formData.questionnaire_id === "none" ? null : formData.questionnaire_id,
+        icon_url: iconUrl || null
       };
 
       if (editingId) {
@@ -112,9 +129,11 @@ export const CategoryManager = () => {
         });
       }
 
-      setFormData({ name: "", description: "", questionnaire_id: "none" });
+      setFormData({ name: "", description: "", questionnaire_id: "none", icon_url: "" });
       setIsEditing(false);
       setEditingId(null);
+      setSelectedFile(null);
+      setPreviewUrl(null);
       fetchCategories();
     } catch (error: any) {
       toast({
@@ -132,9 +151,12 @@ export const CategoryManager = () => {
       name: category.name,
       description: category.description || "",
       questionnaire_id: category.questionnaire_id || "none",
+      icon_url: category.icon_url || "",
     });
     setEditingId(category.id);
     setIsEditing(true);
+    setPreviewUrl(category.icon_url);
+    setSelectedFile(null);
   };
 
   const handleDelete = async (id: string) => {
@@ -161,9 +183,76 @@ export const CategoryManager = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", description: "", questionnaire_id: "none" });
+    setFormData({ name: "", description: "", questionnaire_id: "none", icon_url: "" });
     setIsEditing(false);
     setEditingId(null);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "Error",
+          description: "File size must be less than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Error", 
+          description: "Please select an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSelectedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    }
+  };
+
+  const handleIconUpload = async () => {
+    if (!selectedFile) return null;
+
+    setUploading(true);
+    try {
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('category-icons')
+        .upload(filePath, selectedFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('category-icons')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: `Failed to upload icon: ${error.message}`,
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeIcon = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setFormData({ ...formData, icon_url: "" });
   };
 
   return (
@@ -214,6 +303,53 @@ export const CategoryManager = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>Category Icon</Label>
+              <div className="flex items-center gap-4">
+                {previewUrl ? (
+                  <div className="relative">
+                    <img 
+                      src={previewUrl} 
+                      alt="Category icon preview" 
+                      className="w-16 h-16 object-contain border rounded-lg"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                      onClick={removeIcon}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="w-16 h-16 border-2 border-dashed border-muted-foreground rounded-lg flex items-center justify-center">
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? 'Uploading...' : 'Choose Icon'}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    PNG, JPG up to 5MB
+                  </p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </div>
+            </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>
                 {loading ? 'Saving...' : isEditing ? 'Update' : 'Create'}
@@ -239,16 +375,29 @@ export const CategoryManager = () => {
           <div className="space-y-4">
             {categories.map((category) => (
               <div key={category.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div>
-                  <h4 className="font-medium">{category.name}</h4>
-                  {category.description && (
-                    <p className="text-sm text-muted-foreground">{category.description}</p>
+                <div className="flex items-center gap-3">
+                  {category.icon_url ? (
+                    <img 
+                      src={category.icon_url} 
+                      alt={category.name}
+                      className="w-10 h-10 object-contain border rounded-lg"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 border-2 border-dashed border-muted-foreground rounded-lg flex items-center justify-center">
+                      <Upload className="h-4 w-4 text-muted-foreground" />
+                    </div>
                   )}
-                  {(category as any).questionnaires?.title && (
-                    <p className="text-xs text-primary">
-                      Questionnaire: {(category as any).questionnaires.title}
-                    </p>
-                  )}
+                  <div>
+                    <h4 className="font-medium">{category.name}</h4>
+                    {category.description && (
+                      <p className="text-sm text-muted-foreground">{category.description}</p>
+                    )}
+                    {(category as any).questionnaires?.title && (
+                      <p className="text-xs text-primary">
+                        Questionnaire: {(category as any).questionnaires.title}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button

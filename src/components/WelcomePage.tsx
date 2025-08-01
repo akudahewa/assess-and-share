@@ -1,44 +1,46 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, Users, Brain, Heart, Target, Shield } from "lucide-react";
+import { CheckCircle, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Category {
+  id: string;
+  name: string;
+  description: string | null;
+  icon_url: string | null;
+}
 
 interface WelcomePageProps {
   onStartAssessment: () => void;
 }
 
 export const WelcomePage = ({ onStartAssessment }: WelcomePageProps) => {
-  const features = [
-    {
-      icon: Users,
-      title: "Social Skills",
-      description: "Evaluate your ability to interact and communicate effectively",
-      color: "text-social-skills"
-    },
-    {
-      icon: Brain,
-      title: "Self Awareness",
-      description: "Understand your emotions, strengths, and areas for growth",
-      color: "text-self-awareness"
-    },
-    {
-      icon: Target,
-      title: "Motivating Self",
-      description: "Assess your drive, persistence, and goal orientation",
-      color: "text-motivating-self"
-    },
-    {
-      icon: Heart,
-      title: "Empathy",
-      description: "Measure your ability to understand and share others' feelings",
-      color: "text-empathy"
-    },
-    {
-      icon: Shield,
-      title: "Self Regulation",
-      description: "Evaluate your emotional control and stress management",
-      color: "text-self-regulation"
-    }
-  ];
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('categories')
+          .select('id, name, description, icon_url')
+          .order('name');
+
+        if (error) {
+          console.error('Error fetching categories:', error);
+        } else {
+          setCategories(data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-surface to-surface-variant">
@@ -80,19 +82,46 @@ export const WelcomePage = ({ onStartAssessment }: WelcomePageProps) => {
               What You'll Discover
             </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {features.map((feature, index) => (
-                <Card key={index} className="border-border shadow-soft hover:shadow-medium transition-shadow duration-300">
-                  <CardHeader className="text-center">
-                    <feature.icon className={`h-12 w-12 mx-auto mb-4 ${feature.color}`} />
-                    <CardTitle className="text-lg">{feature.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription className="text-center text-sm">
-                      {feature.description}
-                    </CardDescription>
-                  </CardContent>
-                </Card>
-              ))}
+              {loading ? (
+                // Show skeleton cards while loading
+                Array.from({ length: 6 }).map((_, index) => (
+                  <Card key={index} className="border-border shadow-soft">
+                    <CardHeader className="text-center">
+                      <div className="h-12 w-12 mx-auto mb-4 bg-muted rounded animate-pulse" />
+                      <div className="h-5 bg-muted rounded mx-auto w-24 animate-pulse" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-12 bg-muted rounded animate-pulse" />
+                    </CardContent>
+                  </Card>
+                ))
+              ) : categories.length > 0 ? (
+                categories.map((category) => (
+                  <Card key={category.id} className="border-border shadow-soft hover:shadow-medium transition-shadow duration-300">
+                    <CardHeader className="text-center">
+                      {category.icon_url ? (
+                        <img 
+                          src={category.icon_url} 
+                          alt={category.name}
+                          className="h-12 w-12 mx-auto mb-4 object-contain"
+                        />
+                      ) : (
+                        <Users className="h-12 w-12 mx-auto mb-4 text-primary" />
+                      )}
+                      <CardTitle className="text-lg">{category.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CardDescription className="text-center text-sm">
+                        {category.description || "Assessment category"}
+                      </CardDescription>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-muted-foreground">No categories available yet.</p>
+                </div>
+              )}
             </div>
           </div>
 
