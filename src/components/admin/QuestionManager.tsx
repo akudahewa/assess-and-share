@@ -42,7 +42,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
   const [formData, setFormData] = useState({
     text: "",
     type: "multiple_choice",
-    category_id: "",
+    category_id: "none",
     options: [
       { text: "", score: 1 },
       { text: "", score: 2 },
@@ -105,7 +105,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
       
       const submitData = {
         questionnaire_id: questionnaireId,
-        category_id: formData.category_id,
+        category_id: formData.category_id === "none" ? null : formData.category_id,
         text: formData.text,
         type: formData.type,
         options: formData.type === 'multiple_choice' ? formData.options.filter(opt => opt.text.trim()) as any : null,
@@ -140,7 +140,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
       setFormData({
         text: "",
         type: "multiple_choice",
-        category_id: "",
+        category_id: "none",
         options: [
           { text: "", score: 1 },
           { text: "", score: 2 },
@@ -166,7 +166,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
     setFormData({
       text: question.text,
       type: question.type,
-      category_id: question.category_id,
+      category_id: question.category_id || "none",
       options: (question.options as AnswerOption[]) || [
         { text: "", score: 1 },
         { text: "", score: 2 },
@@ -205,7 +205,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
     setFormData({
       text: "",
       type: "multiple_choice",
-      category_id: "",
+      category_id: "none",
       options: [
         { text: "", score: 1 },
         { text: "", score: 2 },
@@ -277,6 +277,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">No category</SelectItem>
                     {categories.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
