@@ -46,6 +46,23 @@ export const QuestionnaireForm = ({ questionnaire, onComplete, onBack }: Questio
     category.questions
   );
 
+  // Handle case where there are no questions
+  if (allQuestions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-surface to-surface-variant">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-2xl mx-auto text-center">
+            <h1 className="text-2xl font-bold mb-4">No Questions Available</h1>
+            <p className="text-muted-foreground mb-8">
+              This questionnaire doesn't have any questions yet. Please contact an administrator.
+            </p>
+            <Button onClick={onBack}>Back to Welcome</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const currentQuestion = allQuestions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / allQuestions.length) * 100;
 
