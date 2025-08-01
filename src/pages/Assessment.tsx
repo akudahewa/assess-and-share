@@ -5,6 +5,7 @@ import { QuestionnaireForm, QuestionnaireData, AssessmentAnswers, AnswerOption }
 import { ResultsPage, AssessmentResults, CategoryScore } from "@/components/ResultsPage";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { generatePDFReport } from "@/lib/pdfGenerator";
 
 interface DatabaseQuestion {
   id: string;
@@ -181,11 +182,36 @@ const Assessment = () => {
     setCurrentStep("userInfo");
   };
 
-  const handleDownloadPDF = () => {
-    toast({
-      title: "PDF Generation",
-      description: "PDF download feature will be implemented with backend integration.",
-    });
+  const handleDownloadPDF = async () => {
+    if (!results) {
+      toast({
+        title: "Error",
+        description: "No results available to generate PDF.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      toast({
+        title: "Generating PDF",
+        description: "Please wait while we generate your report...",
+      });
+
+      await generatePDFReport(results);
+      
+      toast({
+        title: "PDF Downloaded",
+        description: "Your assessment report has been downloaded successfully!",
+      });
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate PDF report. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEmailReport = () => {
