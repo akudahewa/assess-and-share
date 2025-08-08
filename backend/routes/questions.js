@@ -6,10 +6,12 @@ const router = express.Router();
 
 // Validation middleware
 const validateQuestion = [
-  body('questionnaireId')
+  body(['questionnaireId', 'questionnaire_id'])
+    .optional()
     .isMongoId()
     .withMessage('Valid questionnaire ID is required'),
-  body('categoryId')
+  body(['categoryId', 'category_id'])
+    .optional()
     .isMongoId()
     .withMessage('Valid category ID is required'),
   body('text')
@@ -19,8 +21,17 @@ const validateQuestion = [
   body('type')
     .isIn(['multiple_choice', 'text', 'rating'])
     .withMessage('Type must be multiple_choice, text, or rating'),
-  body('orderNumber')
-    .isInt({ min: 1 })
+  body(['orderNumber', 'order_number'])
+    .optional()
+    .custom((value) => {
+      if (value === null || value === undefined) {
+        return true; // Allow null/undefined for auto-generation
+      }
+      if (!Number.isInteger(value) || value < 1) {
+        throw new Error('Order number must be at least 1');
+      }
+      return true;
+    })
     .withMessage('Order number must be at least 1'),
   body('isRequired')
     .optional()
@@ -30,6 +41,14 @@ const validateQuestion = [
     .optional()
     .isArray()
     .withMessage('Options must be an array'),
+  body('options.*.text')
+    .optional()
+    .isLength({ min: 1 })
+    .withMessage('Option text is required'),
+  body('options.*.score')
+    .optional()
+    .isNumeric()
+    .withMessage('Option score must be a number'),
   body('settings.allowMultipleAnswers')
     .optional()
     .isBoolean()
@@ -188,13 +207,48 @@ router.post('/', validateQuestion, async (req, res) => {
       });
     }
     
-    // If orderNumber is not provided, get the next available order number
-    if (!req.body.orderNumber) {
-      req.body.orderNumber = await Question.getNextOrderNumber(req.body.questionnaireId);
+    // Custom validation to ensure required fields are present
+    if (!req.body.questionnaire_id && !req.body.questionnaireId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Questionnaire ID is required'
+      });
     }
     
-    const question = new Question(req.body);
+    if (!req.body.category_id && !req.body.categoryId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Category ID is required'
+      });
+    }
+    
+    // Transform the request body to match the model schema
+    const questionData = {
+      questionnaireId: req.body.questionnaire_id || req.body.questionnaireId,
+      categoryId: req.body.category_id || req.body.categoryId,
+      text: req.body.text,
+      type: req.body.type,
+      orderNumber: req.body.order_number !== undefined ? req.body.order_number : req.body.orderNumber,
+      isRequired: req.body.isRequired !== undefined ? req.body.isRequired : true,
+      options: req.body.options ? req.body.options.map(option => ({
+        value: option.text || option.value,
+        label: option.text || option.label,
+        score: option.score
+      })) : undefined,
+      settings: req.body.settings
+    };
+    
+    // If orderNumber is not provided or is null, get the next available order number
+    if (!questionData.orderNumber || questionData.orderNumber === null) {
+      questionData.orderNumber = await Question.getNextOrderNumber(questionData.questionnaireId);
+    }
+    
+    const question = new Question(questionData);
     await question.save();
+    
+    // Populate the references before sending response
+    await question.populate('questionnaireId', 'title');
+    await question.populate('categoryId', 'name description');
     
     res.status(201).json({
       success: true,
@@ -208,6 +262,14 @@ router.post('/', validateQuestion, async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Order number already exists in this questionnaire'
+      });
+    }
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details: Object.values(error.errors).map(err => err.message)
       });
     }
     
@@ -230,9 +292,50 @@ router.put('/:id', validateQuestion, async (req, res) => {
       });
     }
     
+    // Transform the request body to match the model schema
+    const updateData = {};
+    
+    if (req.body.questionnaire_id || req.body.questionnaireId) {
+      updateData.questionnaireId = req.body.questionnaire_id || req.body.questionnaireId;
+    }
+    
+    if (req.body.category_id || req.body.categoryId) {
+      updateData.categoryId = req.body.category_id || req.body.categoryId;
+    }
+    
+    if (req.body.text !== undefined) {
+      updateData.text = req.body.text;
+    }
+    
+    if (req.body.type !== undefined) {
+      updateData.type = req.body.type;
+    }
+    
+    if (req.body.order_number !== undefined) {
+      updateData.orderNumber = req.body.order_number;
+    } else if (req.body.orderNumber !== undefined) {
+      updateData.orderNumber = req.body.orderNumber;
+    }
+    
+    if (req.body.isRequired !== undefined) {
+      updateData.isRequired = req.body.isRequired;
+    }
+    
+    if (req.body.options !== undefined) {
+      updateData.options = req.body.options.map(option => ({
+        value: option.text || option.value,
+        label: option.text || option.label,
+        score: option.score
+      }));
+    }
+    
+    if (req.body.settings !== undefined) {
+      updateData.settings = req.body.settings;
+    }
+    
     const question = await Question.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
     
@@ -242,6 +345,10 @@ router.put('/:id', validateQuestion, async (req, res) => {
         error: 'Question not found'
       });
     }
+    
+    // Populate the references before sending response
+    await question.populate('questionnaireId', 'title');
+    await question.populate('categoryId', 'name description');
     
     res.json({
       success: true,
@@ -255,6 +362,14 @@ router.put('/:id', validateQuestion, async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Order number already exists in this questionnaire'
+      });
+    }
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details: Object.values(error.errors).map(err => err.message)
       });
     }
     

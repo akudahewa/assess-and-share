@@ -39,12 +39,17 @@ const questionSchema = new mongoose.Schema({
     }],
     validate: {
       validator: function(options) {
-        if (this.type === 'multiple_choice' && (!options || options.length < 2)) {
-          return false;
+        // Only validate if type is multiple_choice and options are provided
+        if (this.type === 'multiple_choice') {
+          if (!options || options.length < 2) {
+            return false;
+          }
+          // Check that all options have required fields
+          return options.every(option => option.value && option.label);
         }
         return true;
       },
-      message: 'Multiple choice questions must have at least 2 options'
+      message: 'Multiple choice questions must have at least 2 options with value and label'
     }
   },
   orderNumber: {

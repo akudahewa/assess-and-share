@@ -109,10 +109,10 @@ export const questionnairesApi = {
   
   getById: (id: string) => api.get(`/questionnaires/${id}`),
   
-  create: (data: { title: string; description?: string; createdBy: string; isActive?: boolean }) =>
+  create: (data: { title: string; description?: string; createdBy: string; isActive?: boolean; categories?: string[] }) =>
     api.post('/questionnaires', data),
   
-  update: (id: string, data: { title?: string; description?: string; isActive?: boolean }) =>
+  update: (id: string, data: { title?: string; description?: string; isActive?: boolean; categories?: string[] }) =>
     api.put(`/questionnaires/${id}`, data),
   
   delete: (id: string) => api.delete(`/questionnaires/${id}`),

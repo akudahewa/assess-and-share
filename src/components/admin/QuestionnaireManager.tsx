@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { questionnairesApi, ApiError } from "@/lib/api";
+import { questionnairesApi, categoriesApi, ApiError } from "@/lib/api";
 import { Plus, Edit, Trash2, Settings, Power } from "lucide-react";
 import { QuestionManager } from "./QuestionManager";
 
@@ -15,6 +16,19 @@ interface Questionnaire {
   title: string;
   description: string | null;
   is_active: boolean;
+  categories?: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    iconUrl?: string;
+  }>;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  iconUrl?: string;
 }
 
 export const QuestionnaireManager = () => {
@@ -26,22 +40,38 @@ export const QuestionnaireManager = () => {
     title: "",
     description: "",
     is_active: true,
+    categories: [] as string[],
   });
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchQuestionnaires();
+    fetchCategories();
   }, []);
 
   const fetchQuestionnaires = async () => {
     try {
       const response = await questionnairesApi.getAll();
-      setQuestionnaires(response.data || []);
+      setQuestionnaires((response.data as Questionnaire[]) || []);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch questionnaires",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await categoriesApi.getAll();
+      setCategories((response.data as Category[]) || []);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch categories",
         variant: "destructive",
       });
     }
@@ -69,7 +99,7 @@ export const QuestionnaireManager = () => {
         });
       }
 
-      setFormData({ title: "", description: "", is_active: true });
+      setFormData({ title: "", description: "", is_active: true, categories: [] });
       setIsEditing(false);
       setEditingId(null);
       fetchQuestionnaires();
@@ -89,6 +119,7 @@ export const QuestionnaireManager = () => {
       title: questionnaire.title,
       description: questionnaire.description || "",
       is_active: questionnaire.is_active,
+      categories: questionnaire.categories?.map(cat => cat.id) || [],
     });
     setEditingId(questionnaire.id);
     setIsEditing(true);
@@ -114,7 +145,7 @@ export const QuestionnaireManager = () => {
   };
 
   const resetForm = () => {
-    setFormData({ title: "", description: "", is_active: true });
+    setFormData({ title: "", description: "", is_active: true, categories: [] });
     setIsEditing(false);
     setEditingId(null);
   };
@@ -123,7 +154,7 @@ export const QuestionnaireManager = () => {
     try {
       // First deactivate all questionnaires, then activate the selected one
       const allQuestionnaires = await questionnairesApi.getAll();
-      const deactivatePromises = allQuestionnaires.data
+      const deactivatePromises = (allQuestionnaires.data as Questionnaire[])
         .filter(q => q.id !== questionnaireId)
         .map(q => questionnairesApi.deactivate(q.id));
       
@@ -182,6 +213,38 @@ export const QuestionnaireManager = () => {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Categories</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-md p-2">
+                {categories.map((category) => (
+                  <div key={category.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`category-${category.id}`}
+                      checked={formData.categories.includes(category.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setFormData({
+                            ...formData,
+                            categories: [...formData.categories, category.id]
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            categories: formData.categories.filter(id => id !== category.id)
+                          });
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`category-${category.id}`} className="text-sm">
+                      {category.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              {categories.length === 0 && (
+                <p className="text-sm text-muted-foreground">No categories available. Create categories first.</p>
+              )}
             </div>
             <div className="flex items-center space-x-2">
               <Switch

@@ -20,6 +20,16 @@ const questionnaireSchema = new mongoose.Schema({
     type: String, // User ID or email
     required: [true, 'Creator information is required']
   },
+  categories: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+    validate: {
+      validator: function(v) {
+        return mongoose.Types.ObjectId.isValid(v);
+      },
+      message: 'Invalid category ID'
+    }
+  }],
   settings: {
     allowAnonymous: {
       type: Boolean,
@@ -107,12 +117,9 @@ questionnaireSchema.methods.deactivate = function() {
 // Instance method to update metadata
 questionnaireSchema.methods.updateMetadata = async function() {
   const Question = mongoose.model('Question');
-  const Category = mongoose.model('Category');
   
-  const [questionCount, categoryCount] = await Promise.all([
-    Question.countDocuments({ questionnaireId: this._id }),
-    Category.countDocuments({ questionnaireId: this._id, isActive: true })
-  ]);
+  const questionCount = await Question.countDocuments({ questionnaireId: this._id });
+  const categoryCount = this.categories ? this.categories.length : 0;
   
   this.metadata.totalQuestions = questionCount;
   this.metadata.categories = categoryCount;

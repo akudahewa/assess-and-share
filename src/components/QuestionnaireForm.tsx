@@ -152,7 +152,7 @@ export const QuestionnaireForm = ({ questionnaire, onComplete, onBack }: Questio
                       className="flex-1 cursor-pointer py-2 px-3 rounded-md hover:bg-accent transition-colors"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">{option.text}</span>
+                        <span className="font-medium">{option.label}</span>
                         <span className="text-sm text-muted-foreground">({option.score})</span>
                       </div>
                     </Label>

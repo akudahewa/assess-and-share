@@ -66,8 +66,19 @@ categorySchema.statics.findActive = function() {
 };
 
 // Static method to find categories by questionnaire
-categorySchema.statics.findByQuestionnaire = function(questionnaireId) {
-  return this.find({ questionnaireId, isActive: true }).sort({ order: 1 });
+categorySchema.statics.findByQuestionnaire = async function(questionnaireId) {
+  // Get the questionnaire to see which categories it has
+  const Questionnaire = mongoose.model('Questionnaire');
+  const questionnaire = await Questionnaire.findById(questionnaireId).select('categories');
+  
+  if (questionnaire && questionnaire.categories && questionnaire.categories.length > 0) {
+    return this.find({ 
+      _id: { $in: questionnaire.categories }, 
+      isActive: true 
+    }).sort({ order: 1 });
+  }
+  
+  return [];
 };
 
 // Instance method to deactivate category

@@ -19,6 +19,14 @@ const validateQuestionnaire = [
     .trim()
     .isLength({ min: 1 })
     .withMessage('Creator information is required'),
+  body('categories')
+    .optional()
+    .isArray()
+    .withMessage('Categories must be an array'),
+  body('categories.*')
+    .optional()
+    .isMongoId()
+    .withMessage('Each category must be a valid MongoDB ObjectId'),
   body('settings.allowAnonymous')
     .optional()
     .isBoolean()
@@ -69,6 +77,7 @@ router.get('/', async (req, res) => {
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
     
     const questionnaires = await Questionnaire.find(query)
+      .populate('categories', 'name description iconUrl')
       .sort(sort)
       .limit(parseInt(limit))
       .skip(skip);
@@ -97,7 +106,7 @@ router.get('/', async (req, res) => {
 // GET /api/questionnaires/active - Get active questionnaires
 router.get('/active', async (req, res) => {
   try {
-    const questionnaires = await Questionnaire.findActive();
+    const questionnaires = await Questionnaire.findActive().populate('categories', 'name description iconUrl');
     
     res.json({
       success: true,
@@ -115,7 +124,7 @@ router.get('/active', async (req, res) => {
 // GET /api/questionnaires/creator/:createdBy - Get questionnaires by creator
 router.get('/creator/:createdBy', async (req, res) => {
   try {
-    const questionnaires = await Questionnaire.findByCreator(req.params.createdBy);
+    const questionnaires = await Questionnaire.findByCreator(req.params.createdBy).populate('categories', 'name description iconUrl');
     
     res.json({
       success: true,
@@ -133,7 +142,7 @@ router.get('/creator/:createdBy', async (req, res) => {
 // GET /api/questionnaires/:id - Get single questionnaire
 router.get('/:id', async (req, res) => {
   try {
-    const questionnaire = await Questionnaire.findById(req.params.id);
+    const questionnaire = await Questionnaire.findById(req.params.id).populate('categories', 'name description iconUrl');
     
     if (!questionnaire) {
       return res.status(404).json({
@@ -169,6 +178,9 @@ router.post('/', validateQuestionnaire, async (req, res) => {
     
     const questionnaire = new Questionnaire(req.body);
     await questionnaire.save();
+    
+    // Populate categories before sending response
+    await questionnaire.populate('categories', 'name description iconUrl');
     
     res.status(201).json({
       success: true,
@@ -208,6 +220,9 @@ router.put('/:id', validateQuestionnaire, async (req, res) => {
         error: 'Questionnaire not found'
       });
     }
+    
+    // Populate categories before sending response
+    await questionnaire.populate('categories', 'name description iconUrl');
     
     res.json({
       success: true,

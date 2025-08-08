@@ -351,7 +351,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
                   </p>
                   {question.options && (
                     <div className="mt-2 text-xs text-muted-foreground">
-                      Options: {(question.options as AnswerOption[]).map(opt => `${opt.text} (${opt.score})`).join(', ')}
+                      Options: {(question.options as AnswerOption[]).map(opt => `${opt.label} (${opt.score})`).join(', ')}
                     </div>
                   )}
                 </div>

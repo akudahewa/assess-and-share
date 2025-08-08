@@ -1,5 +1,6 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
+import mongoose from 'mongoose';
 import Category from '../models/Category.js';
 
 const router = express.Router();
@@ -43,9 +44,27 @@ router.get('/', async (req, res) => {
 
     const query = {};
     
-    // Filter by questionnaire
+    // Filter by questionnaire - now we need to find categories that are in the questionnaire's categories array
     if (questionnaireId) {
-      query.questionnaireId = questionnaireId;
+      // First, get the questionnaire to see which categories it has
+      const Questionnaire = mongoose.model('Questionnaire');
+      const questionnaire = await Questionnaire.findById(questionnaireId).select('categories');
+      
+      if (questionnaire && questionnaire.categories && questionnaire.categories.length > 0) {
+        query._id = { $in: questionnaire.categories };
+      } else {
+        // If no categories are associated, return empty array
+        return res.json({
+          success: true,
+          data: [],
+          pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            total: 0,
+            pages: 0
+          }
+        });
+      }
     }
     
     // Filter by active status
