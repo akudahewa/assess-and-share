@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export interface AnswerOption {
-  text: string;
+  label: string;
   score: number;
 }
 
@@ -34,13 +34,15 @@ export interface AssessmentAnswers {
 
 interface QuestionnaireFormProps {
   questionnaire: QuestionnaireData;
-  onComplete: (answers: AssessmentAnswers) => void;
+  onComplete: (answers: AssessmentAnswers, timeSpent: number) => void;
   onBack: () => void;
+  onAbandon?: (answers: AssessmentAnswers, timeSpent: number) => void;
 }
 
-export const QuestionnaireForm = ({ questionnaire, onComplete, onBack }: QuestionnaireFormProps) => {
+export const QuestionnaireForm = ({ questionnaire, onComplete, onBack, onAbandon }: QuestionnaireFormProps) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<AssessmentAnswers>({});
+  const [startTime, setStartTime] = useState<number>(Date.now());
 
   // Flatten all questions across categories
   const allQuestions = Object.values(questionnaire.categories).flatMap(category =>
@@ -81,13 +83,24 @@ export const QuestionnaireForm = ({ questionnaire, onComplete, onBack }: Questio
     if (currentQuestionIndex < allQuestions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
     } else {
-      onComplete(answers);
+      const timeSpent = Math.floor((Date.now() - startTime) / 1000); // Convert to seconds
+      onComplete(answers, timeSpent);
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(prev => prev - 1);
+    }
+  };
+
+  const handleBack = () => {
+    // If user has answered any questions, save as abandoned
+    if (Object.keys(answers).length > 0 && onAbandon) {
+      const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+      onAbandon(answers, timeSpent);
+    } else {
+      onBack();
     }
   };
 
@@ -164,15 +177,24 @@ export const QuestionnaireForm = ({ questionnaire, onComplete, onBack }: Questio
 
           {/* Navigation */}
           <div className="flex justify-between items-center">
-            <Button
-              variant="outline"
-              onClick={handlePrevious}
-              disabled={currentQuestionIndex === 0}
-              className="flex items-center gap-2"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={currentQuestionIndex === 0}
+                className="flex items-center gap-2"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                className="flex items-center gap-2"
+              >
+                Back to Start
+              </Button>
+            </div>
 
             <Button
               onClick={handleNext}

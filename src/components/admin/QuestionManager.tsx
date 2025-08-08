@@ -10,7 +10,7 @@ import { questionsApi, categoriesApi, ApiError } from "@/lib/api";
 import { ArrowLeft, Edit, Trash2, Plus } from "lucide-react";
 
 interface AnswerOption {
-  text: string;
+  label: string;
   score: number;
 }
 
@@ -44,10 +44,10 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
     type: "multiple_choice",
     category_id: "none",
     options: [
-      { text: "", score: 1 },
-      { text: "", score: 2 },
-      { text: "", score: 3 },
-      { text: "", score: 4 },
+      { label: "", score: 1 },
+      { label: "", score: 2 },
+      { label: "", score: 3 },
+      { label: "", score: 4 },
     ] as AnswerOption[],
   });
   const [loading, setLoading] = useState(false);
@@ -61,10 +61,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
   const fetchQuestions = async () => {
     try {
       const response = await questionsApi.getByQuestionnaire(questionnaireId);
-      setQuestions((response.data || []).map(q => ({
-        ...q,
-        options: q.options as any
-      })));
+      setQuestions((response.data as Question[]) || []);
     } catch (error) {
       toast({
         title: "Error",
@@ -77,7 +74,7 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
   const fetchCategories = async () => {
     try {
       const response = await categoriesApi.getAll({ questionnaireId });
-      setCategories(response.data || []);
+      setCategories((response.data as Category[]) || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
@@ -91,12 +88,16 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
       const nextOrderNumber = Math.max(0, ...questions.map(q => q.order_number)) + 1;
       
       const submitData = {
-        questionnaire_id: questionnaireId,
-        category_id: formData.category_id === "none" ? null : formData.category_id,
+        questionnaireId: questionnaireId,
+        categoryId: formData.category_id === "none" ? null : formData.category_id,
         text: formData.text,
-        type: formData.type,
-        options: formData.type === 'multiple_choice' ? formData.options.filter(opt => opt.text.trim()) as any : null,
-        order_number: editingId ? undefined : nextOrderNumber,
+        type: formData.type as 'multiple_choice' | 'text' | 'rating',
+        options: formData.type === 'multiple_choice' ? formData.options.filter(opt => opt.label.trim()).map(opt => ({
+          value: opt.label,
+          label: opt.label,
+          score: opt.score
+        })) : undefined,
+        orderNumber: editingId ? undefined : nextOrderNumber,
       };
 
       if (editingId) {
@@ -118,10 +119,10 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
         type: "multiple_choice",
         category_id: "none",
         options: [
-          { text: "", score: 1 },
-          { text: "", score: 2 },
-          { text: "", score: 3 },
-          { text: "", score: 4 },
+          { label: "", score: 1 },
+          { label: "", score: 2 },
+          { label: "", score: 3 },
+          { label: "", score: 4 },
         ],
       });
       setIsEditing(false);
@@ -144,10 +145,10 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
       type: question.type,
       category_id: question.category_id || "none",
       options: (question.options as AnswerOption[]) || [
-        { text: "", score: 1 },
-        { text: "", score: 2 },
-        { text: "", score: 3 },
-        { text: "", score: 4 },
+        { label: "", score: 1 },
+        { label: "", score: 2 },
+        { label: "", score: 3 },
+        { label: "", score: 4 },
       ],
     });
     setEditingId(question.id);
@@ -179,24 +180,24 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
       type: "multiple_choice",
       category_id: "none",
       options: [
-        { text: "", score: 1 },
-        { text: "", score: 2 },
-        { text: "", score: 3 },
-        { text: "", score: 4 },
+        { label: "", score: 1 },
+        { label: "", score: 2 },
+        { label: "", score: 3 },
+        { label: "", score: 4 },
       ],
     });
     setIsEditing(false);
     setEditingId(null);
   };
 
-  const updateOption = (index: number, field: 'text' | 'score', value: string | number) => {
+  const updateOption = (index: number, field: 'label' | 'score', value: string | number) => {
     const newOptions = [...formData.options];
     newOptions[index] = { ...newOptions[index], [field]: value };
     setFormData({ ...formData, options: newOptions });
   };
 
   const addOption = () => {
-    const newOptions = [...formData.options, { text: "", score: formData.options.length + 1 }];
+    const newOptions = [...formData.options, { label: "", score: formData.options.length + 1 }];
     setFormData({ ...formData, options: newOptions });
   };
 
@@ -290,8 +291,8 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
                   <div key={index} className="flex gap-2 items-center">
                     <div className="flex-1">
                       <Input
-                        value={option.text}
-                        onChange={(e) => updateOption(index, 'text', e.target.value)}
+                        value={option.label}
+                        onChange={(e) => updateOption(index, 'label', e.target.value)}
                         placeholder={`Option ${index + 1}`}
                       />
                     </div>

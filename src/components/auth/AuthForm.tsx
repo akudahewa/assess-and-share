@@ -4,41 +4,42 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-// TODO: Replace with proper authentication API
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
-interface AuthFormProps {
-  onAuthSuccess: () => void;
-}
-
-export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
+export const AuthForm = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const { login, signup } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      let success = false;
+      
       if (isLogin) {
-        // TODO: Implement proper authentication
-        // For now, just simulate successful login
-        if (email === 'admin@example.com' && password === 'admin') {
-          toast({
-            title: "Login successful",
-            description: "Welcome to the admin dashboard",
-          });
-          onAuthSuccess();
-        } else {
-          throw new Error('Invalid credentials');
-        }
+        success = await login(email, password);
       } else {
-        // TODO: Implement registration
+        success = await signup(email, password, name);
+      }
+      
+      if (success) {
         toast({
-          title: "Registration not implemented",
-          description: "Please contact administrator for account creation",
+          title: isLogin ? "Login successful" : "Signup successful",
+          description: isLogin ? "Welcome to the admin dashboard" : "Account created successfully",
+        });
+        navigate('/admin');
+      } else {
+        toast({
+          title: isLogin ? "Login failed" : "Signup failed",
+          description: isLogin ? "Invalid email or password" : "Please check your information",
           variant: "destructive",
         });
       }
@@ -53,17 +54,41 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
     }
   };
 
+  const resetForm = () => {
+    setEmail("");
+    setPassword("");
+    setName("");
+  };
+
+  const toggleMode = () => {
+    setIsLogin(!isLogin);
+    resetForm();
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>{isLogin ? 'Admin Login' : 'Admin Registration'}</CardTitle>
+          <CardTitle>{isLogin ? 'Admin Login' : 'Admin Signup'}</CardTitle>
           <CardDescription>
-            {isLogin ? 'Sign in to access the admin dashboard' : 'Create an admin account'}
+            {isLogin ? 'Sign in to access the admin dashboard' : 'Create a new admin account'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="John Doe"
+                  required={!isLogin}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -71,6 +96,7 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder={isLogin ? "admin@example.com" : "your@email.com"}
                 required
               />
             </div>
@@ -81,6 +107,7 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder={isLogin ? "admin123" : "your password"}
                 required
               />
             </div>
@@ -88,15 +115,32 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
               {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Sign Up'}
             </Button>
           </form>
+          
           <div className="mt-4 text-center">
             <Button
               variant="ghost"
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={toggleMode}
               className="text-sm"
             >
               {isLogin ? "Need an account? Sign up" : "Already have an account? Sign in"}
             </Button>
           </div>
+
+          {isLogin && (
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              <p>Demo credentials:</p>
+              <p>Email: admin@example.com</p>
+              <p>Password: admin123</p>
+            </div>
+          )}
+
+          {!isLogin && (
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              <p>Demo signup:</p>
+              <p>Email: test@example.com</p>
+              <p>Password: test123</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

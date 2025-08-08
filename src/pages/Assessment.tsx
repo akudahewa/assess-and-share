@@ -142,18 +142,95 @@ const Assessment = () => {
     setCurrentStep("questionnaire");
   };
 
-  const handleQuestionnaireComplete = (assessmentAnswers: AssessmentAnswers) => {
+  const handleQuestionnaireComplete = async (assessmentAnswers: AssessmentAnswers, timeSpent: number) => {
     setAnswers(assessmentAnswers);
+    
     if (userInfo) {
-      const calculatedResults = calculateResults(userInfo, assessmentAnswers);
-      setResults(calculatedResults);
-      setCurrentStep("results");
-      
-      toast({
-        title: "Assessment Complete!",
-        description: "Your personalized report has been generated.",
-      });
+      try {
+        // Get the active questionnaire ID
+        const questionnairesResponse = await questionnairesApi.getActive();
+        const questionnaires = questionnairesResponse.data as any[];
+        
+        if (!questionnaires || questionnaires.length === 0) {
+          throw new Error("No active questionnaire found");
+        }
+
+        const questionnaireId = questionnaires[0].id;
+        
+        // Save user response to database
+        await userResponsesApi.create({
+          questionnaireId: questionnaireId,
+          userName: userInfo.name,
+          userEmail: userInfo.email,
+          responses: assessmentAnswers,
+          timeSpent: timeSpent,
+          status: 'completed'
+        });
+
+        // Calculate results for display
+        const calculatedResults = calculateResults(userInfo, assessmentAnswers);
+        setResults(calculatedResults);
+        setCurrentStep("results");
+        
+        toast({
+          title: "Assessment Complete!",
+          description: "Your personalized report has been generated and saved.",
+        });
+      } catch (error: any) {
+        console.error("Error saving response:", error);
+        toast({
+          title: "Warning",
+          description: "Assessment completed but there was an issue saving your response. Your results are still available.",
+          variant: "destructive",
+        });
+        
+        // Still show results even if saving failed
+        const calculatedResults = calculateResults(userInfo, assessmentAnswers);
+        setResults(calculatedResults);
+        setCurrentStep("results");
+      }
     }
+  };
+
+  const handleQuestionnaireAbandon = async (assessmentAnswers: AssessmentAnswers, timeSpent: number) => {
+    if (userInfo) {
+      try {
+        // Get the active questionnaire ID
+        const questionnairesResponse = await questionnairesApi.getActive();
+        const questionnaires = questionnairesResponse.data as any[];
+        
+        if (!questionnaires || questionnaires.length === 0) {
+          throw new Error("No active questionnaire found");
+        }
+
+        const questionnaireId = questionnaires[0].id;
+        
+        // Save abandoned response to database
+        await userResponsesApi.create({
+          questionnaireId: questionnaireId,
+          userName: userInfo.name,
+          userEmail: userInfo.email,
+          responses: assessmentAnswers,
+          timeSpent: timeSpent,
+          status: 'abandoned'
+        });
+
+        toast({
+          title: "Assessment Saved",
+          description: "Your partial responses have been saved.",
+        });
+      } catch (error: any) {
+        console.error("Error saving abandoned response:", error);
+        toast({
+          title: "Warning",
+          description: "There was an issue saving your partial responses.",
+          variant: "destructive",
+        });
+      }
+    }
+    
+    // Go back to user info form
+    setCurrentStep("userInfo");
   };
 
   const handleRestart = () => {
@@ -233,6 +310,7 @@ const Assessment = () => {
         <QuestionnaireForm
           questionnaire={questionnaire}
           onComplete={handleQuestionnaireComplete}
+          onAbandon={handleQuestionnaireAbandon}
           onBack={handleBackToUserInfo}
         />
       );

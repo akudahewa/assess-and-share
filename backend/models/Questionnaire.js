@@ -103,7 +103,16 @@ questionnaireSchema.statics.findByCreator = function(createdBy) {
 };
 
 // Instance method to activate questionnaire
-questionnaireSchema.methods.activate = function() {
+questionnaireSchema.methods.activate = async function() {
+  // First deactivate all questionnaires except this one
+  const result = await this.constructor.updateMany(
+    { _id: { $ne: this._id } }, 
+    { isActive: false }
+  );
+  
+  console.log(`Deactivated ${result.modifiedCount} questionnaires`);
+  
+  // Then activate this questionnaire
   this.isActive = true;
   return this.save();
 };

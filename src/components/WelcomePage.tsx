@@ -105,11 +105,11 @@ export const WelcomePage = ({ onStartAssessment }: WelcomePageProps) => {
             <h2 className="text-2xl font-semibold text-center mb-8 text-foreground">
               What You'll Discover
             </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="flex flex-wrap justify-center gap-6">
               {loading ? (
                 // Show skeleton cards while loading
                 Array.from({ length: 6 }).map((_, index) => (
-                  <Card key={index} className="border-border shadow-soft">
+                  <Card key={index} className="border-border shadow-soft w-full md:w-80 lg:w-72">
                     <CardHeader className="text-center">
                       <div className="h-12 w-12 mx-auto mb-4 bg-muted rounded animate-pulse" />
                       <div className="h-5 bg-muted rounded mx-auto w-24 animate-pulse" />
@@ -121,7 +121,7 @@ export const WelcomePage = ({ onStartAssessment }: WelcomePageProps) => {
                 ))
               ) : categories.length > 0 ? (
                 categories.map((category) => (
-                  <Card key={category.id} className="border-border shadow-soft hover:shadow-medium transition-shadow duration-300">
+                  <Card key={category.id} className="border-border shadow-soft hover:shadow-medium transition-shadow duration-300 w-full md:w-80 lg:w-72">
                     <CardHeader className="text-center">
                       {category.icon_url ? (
                         <img 
@@ -142,7 +142,7 @@ export const WelcomePage = ({ onStartAssessment }: WelcomePageProps) => {
                   </Card>
                 ))
               ) : (
-                <div className="col-span-full text-center py-8">
+                <div className="text-center py-8">
                   <p className="text-muted-foreground">No categories available yet.</p>
                 </div>
               )}

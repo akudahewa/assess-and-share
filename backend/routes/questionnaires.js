@@ -277,9 +277,13 @@ router.patch('/:id/activate', async (req, res) => {
     
     await questionnaire.activate();
     
+    // Fetch the updated questionnaire with populated categories
+    const updatedQuestionnaire = await Questionnaire.findById(req.params.id)
+      .populate('categories', 'name description iconUrl');
+    
     res.json({
       success: true,
-      data: questionnaire,
+      data: updatedQuestionnaire,
       message: 'Questionnaire activated successfully'
     });
   } catch (error) {

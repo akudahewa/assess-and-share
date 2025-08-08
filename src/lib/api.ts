@@ -15,6 +15,16 @@ interface ApiResponse<T = any> {
   };
 }
 
+interface AuthResponse {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: 'admin' | 'user';
+  };
+  token: string;
+}
+
 class ApiError extends Error {
   constructor(
     message: string,
@@ -299,6 +309,17 @@ export const itemsApi = {
 // Health check
 export const healthApi = {
   check: () => api.get('/health'),
+};
+
+// Authentication API
+export const authApi = {
+  login: (data: { email: string; password: string }) =>
+    api.post<AuthResponse>('/auth/login', data),
+  
+  signup: (data: { name: string; email: string; password: string; role?: string }) =>
+    api.post<AuthResponse>('/auth/signup', data),
+  
+  getCurrentUser: () => api.get<AuthResponse>('/auth/me'),
 };
 
 export { ApiError };

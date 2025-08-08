@@ -15,7 +15,7 @@ interface Questionnaire {
   id: string;
   title: string;
   description: string | null;
-  is_active: boolean;
+  isActive: boolean;
   categories?: Array<{
     id: string;
     name: string;
@@ -39,7 +39,7 @@ export const QuestionnaireManager = () => {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    is_active: true,
+    isActive: true,
     categories: [] as string[],
   });
   const [categories, setCategories] = useState<Category[]>([]);
@@ -99,7 +99,7 @@ export const QuestionnaireManager = () => {
         });
       }
 
-      setFormData({ title: "", description: "", is_active: true, categories: [] });
+      setFormData({ title: "", description: "", isActive: true, categories: [] });
       setIsEditing(false);
       setEditingId(null);
       fetchQuestionnaires();
@@ -118,7 +118,7 @@ export const QuestionnaireManager = () => {
     setFormData({
       title: questionnaire.title,
       description: questionnaire.description || "",
-      is_active: questionnaire.is_active,
+      isActive: questionnaire.isActive,
       categories: questionnaire.categories?.map(cat => cat.id) || [],
     });
     setEditingId(questionnaire.id);
@@ -145,20 +145,13 @@ export const QuestionnaireManager = () => {
   };
 
   const resetForm = () => {
-    setFormData({ title: "", description: "", is_active: true, categories: [] });
+    setFormData({ title: "", description: "", isActive: true, categories: [] });
     setIsEditing(false);
     setEditingId(null);
   };
 
   const handleActivate = async (questionnaireId: string) => {
     try {
-      // First deactivate all questionnaires, then activate the selected one
-      const allQuestionnaires = await questionnairesApi.getAll();
-      const deactivatePromises = (allQuestionnaires.data as Questionnaire[])
-        .filter(q => q.id !== questionnaireId)
-        .map(q => questionnairesApi.deactivate(q.id));
-      
-      await Promise.all(deactivatePromises);
       await questionnairesApi.activate(questionnaireId);
 
       toast({
@@ -248,11 +241,11 @@ export const QuestionnaireManager = () => {
             </div>
             <div className="flex items-center space-x-2">
               <Switch
-                id="is_active"
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                id="isActive"
+                checked={formData.isActive}
+                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
               />
-              <Label htmlFor="is_active">Active</Label>
+              <Label htmlFor="isActive">Active</Label>
             </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={loading}>
@@ -284,19 +277,30 @@ export const QuestionnaireManager = () => {
                   {questionnaire.description && (
                     <p className="text-sm text-muted-foreground">{questionnaire.description}</p>
                   )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Status: {questionnaire.is_active ? 'Active' : 'Inactive'}
-                  </p>
+                  <div className="flex items-center mt-1">
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      questionnaire.isActive 
+                        ? 'bg-green-100 text-green-800 font-medium' 
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {questionnaire.isActive ? '✓ Active' : 'Inactive'}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    variant={questionnaire.is_active ? "default" : "outline"}
+                    variant={questionnaire.isActive ? "default" : "outline"}
                     size="sm"
                     onClick={() => handleActivate(questionnaire.id)}
-                    disabled={questionnaire.is_active}
+                    disabled={questionnaire.isActive}
+                    style={{
+                      backgroundColor: questionnaire.isActive ? '#059669' : undefined,
+                      color: questionnaire.isActive ? 'white' : undefined,
+                      cursor: questionnaire.isActive ? 'not-allowed' : 'pointer'
+                    }}
                   >
                     <Power className="w-4 h-4 mr-1" />
-                    {questionnaire.is_active ? "Active" : "Activate"}
+                    {questionnaire.isActive ? "Active" : "Activate"}
                   </Button>
                   <Button
                     variant="outline"
