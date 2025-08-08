@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { questionnairesApi, categoriesApi } from "@/lib/api";
 import logo from "@/assets/logo.png";
 
 interface Category {
@@ -26,36 +26,18 @@ export const WelcomePage = ({ onStartAssessment }: WelcomePageProps) => {
     const fetchCategories = async () => {
       try {
         // First get the active questionnaire
-        const { data: activeQuestionnaire, error: questionnaireError } = await supabase
-          .from('questionnaires')
-          .select('id')
-          .eq('is_active', true)
-          .single();
+        const activeQuestionnairesResponse = await questionnairesApi.getActive();
+        const activeQuestionnaires = activeQuestionnairesResponse.data as any[];
 
-        if (questionnaireError) {
-          console.error('Error fetching active questionnaire:', questionnaireError);
-          setLoading(false);
-          return;
-        }
-
-        if (!activeQuestionnaire) {
+        if (!activeQuestionnaires || activeQuestionnaires.length === 0) {
           console.log('No active questionnaire found');
           setLoading(false);
           return;
         }
 
         // Then get categories for that questionnaire
-        const { data, error } = await supabase
-          .from('categories')
-          .select('id, name, description, icon_url')
-          .eq('questionnaire_id', activeQuestionnaire.id)
-          .order('name');
-
-        if (error) {
-          console.error('Error fetching categories:', error);
-        } else {
-          setCategories(data || []);
-        }
+        const categoriesResponse = await categoriesApi.getByQuestionnaire(activeQuestionnaires[0].id);
+        setCategories(categoriesResponse.data as Category[] || []);
       } catch (error) {
         console.error('Error fetching categories:', error);
       } finally {

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { questionnairesApi, ApiError } from "@/lib/api";
 import { Plus, Edit, Trash2, Settings, Power } from "lucide-react";
 import { QuestionManager } from "./QuestionManager";
 
@@ -35,19 +35,15 @@ export const QuestionnaireManager = () => {
   }, []);
 
   const fetchQuestionnaires = async () => {
-    const { data, error } = await supabase
-      .from('questionnaires')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
+    try {
+      const response = await questionnairesApi.getAll();
+      setQuestionnaires(response.data || []);
+    } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch questionnaires",
         variant: "destructive",
       });
-    } else {
-      setQuestionnaires(data || []);
     }
   };
 
@@ -56,27 +52,17 @@ export const QuestionnaireManager = () => {
     setLoading(true);
 
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      
       if (editingId) {
-        const { error } = await supabase
-          .from('questionnaires')
-          .update(formData)
-          .eq('id', editingId);
-
-        if (error) throw error;
-
+        await questionnairesApi.update(editingId, formData);
         toast({
           title: "Success",
           description: "Questionnaire updated successfully",
         });
       } else {
-        const { error } = await supabase
-          .from('questionnaires')
-          .insert([{ ...formData, created_by: userData.user?.id }]);
-
-        if (error) throw error;
-
+        await questionnairesApi.create({
+          ...formData,
+          createdBy: "admin" // TODO: Get actual user ID from auth system
+        });
         toast({
           title: "Success",
           description: "Questionnaire created successfully",
@@ -111,23 +97,19 @@ export const QuestionnaireManager = () => {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this questionnaire? This will also delete all associated questions.")) return;
 
-    const { error } = await supabase
-      .from('questionnaires')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete questionnaire",
-        variant: "destructive",
-      });
-    } else {
+    try {
+      await questionnairesApi.delete(id);
       toast({
         title: "Success",
         description: "Questionnaire deleted successfully",
       });
       fetchQuestionnaires();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete questionnaire",
+        variant: "destructive",
+      });
     }
   };
 
@@ -139,12 +121,14 @@ export const QuestionnaireManager = () => {
 
   const handleActivate = async (questionnaireId: string) => {
     try {
-      // Use the database function to ensure only one questionnaire is active
-      const { error } = await supabase.rpc('activate_questionnaire', {
-        questionnaire_id: questionnaireId
-      });
-
-      if (error) throw error;
+      // First deactivate all questionnaires, then activate the selected one
+      const allQuestionnaires = await questionnairesApi.getAll();
+      const deactivatePromises = allQuestionnaires.data
+        .filter(q => q.id !== questionnaireId)
+        .map(q => questionnairesApi.deactivate(q.id));
+      
+      await Promise.all(deactivatePromises);
+      await questionnairesApi.activate(questionnaireId);
 
       toast({
         title: "Success",

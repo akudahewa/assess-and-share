@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+// TODO: Replace with proper authentication API
 
 interface AuthFormProps {
   onAuthSuccess: () => void;
@@ -23,44 +23,23 @@ export const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        
-        if (error) throw error;
-        
-        // Check if user is admin
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-          .single();
-          
-        if (profile?.role !== 'admin') {
-          await supabase.auth.signOut();
-          throw new Error('Access denied. Admin privileges required.');
+        // TODO: Implement proper authentication
+        // For now, just simulate successful login
+        if (email === 'admin@example.com' && password === 'admin') {
+          toast({
+            title: "Login successful",
+            description: "Welcome to the admin dashboard",
+          });
+          onAuthSuccess();
+        } else {
+          throw new Error('Invalid credentials');
         }
-        
-        toast({
-          title: "Login successful",
-          description: "Welcome to the admin dashboard",
-        });
-        onAuthSuccess();
       } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/admin`,
-          },
-        });
-        
-        if (error) throw error;
-        
+        // TODO: Implement registration
         toast({
-          title: "Registration successful",
-          description: "Please check your email to confirm your account",
+          title: "Registration not implemented",
+          description: "Please contact administrator for account creation",
+          variant: "destructive",
         });
       }
     } catch (error: any) {

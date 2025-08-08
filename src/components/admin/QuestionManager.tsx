@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { questionsApi, categoriesApi, ApiError } from "@/lib/api";
 import { ArrowLeft, Edit, Trash2, Plus } from "lucide-react";
 
 interface AnswerOption {
@@ -59,40 +59,27 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
   }, [questionnaireId]);
 
   const fetchQuestions = async () => {
-    const { data, error } = await supabase
-      .from('questions')
-      .select(`
-        *,
-        categories(name)
-      `)
-      .eq('questionnaire_id', questionnaireId)
-      .order('order_number');
-
-    if (error) {
+    try {
+      const response = await questionsApi.getByQuestionnaire(questionnaireId);
+      setQuestions((response.data || []).map(q => ({
+        ...q,
+        options: q.options as any
+      })));
+    } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch questions",
         variant: "destructive",
       });
-    } else {
-      setQuestions((data || []).map(q => ({
-        ...q,
-        options: q.options as any
-      })));
     }
   };
 
   const fetchCategories = async () => {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('id, name')
-      .or(`questionnaire_id.eq.${questionnaireId},questionnaire_id.is.null`)
-      .order('name');
-
-    if (error) {
+    try {
+      const response = await categoriesApi.getAll({ questionnaireId });
+      setCategories(response.data || []);
+    } catch (error) {
       console.error('Error fetching categories:', error);
-    } else {
-      setCategories(data || []);
     }
   };
 
@@ -113,24 +100,13 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
       };
 
       if (editingId) {
-        const { error } = await supabase
-          .from('questions')
-          .update(submitData)
-          .eq('id', editingId);
-
-        if (error) throw error;
-
+        await questionsApi.update(editingId, submitData);
         toast({
           title: "Success",
           description: "Question updated successfully",
         });
       } else {
-        const { error } = await supabase
-          .from('questions')
-          .insert([submitData as any]);
-
-        if (error) throw error;
-
+        await questionsApi.create(submitData);
         toast({
           title: "Success",
           description: "Question created successfully",
@@ -181,23 +157,19 @@ export const QuestionManager = ({ questionnaireId, onBack }: QuestionManagerProp
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this question?")) return;
 
-    const { error } = await supabase
-      .from('questions')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete question",
-        variant: "destructive",
-      });
-    } else {
+    try {
+      await questionsApi.delete(id);
       toast({
         title: "Success",
         description: "Question deleted successfully",
       });
       fetchQuestions();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete question",
+        variant: "destructive",
+      });
     }
   };
 

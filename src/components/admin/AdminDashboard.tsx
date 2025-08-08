@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CategoryManager } from "./CategoryManager";
 import { QuestionnaireManager } from "./QuestionnaireManager";
 import { ScoringRulesManager } from "./ScoringRulesManager";
-import { supabase } from "@/integrations/supabase/client";
+// TODO: Replace with proper authentication API
 import { LogOut, Users, FileText, Tags, Settings } from "lucide-react";
 
 interface AdminDashboardProps {
@@ -16,7 +16,7 @@ export const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
   const [activeTab, setActiveTab] = useState("categories");
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    // TODO: Implement proper logout
     onLogout();
   };
 

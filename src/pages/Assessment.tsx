@@ -4,7 +4,7 @@ import { UserInfoForm, UserInfo } from "@/components/UserInfoForm";
 import { QuestionnaireForm, QuestionnaireData, AssessmentAnswers, AnswerOption } from "@/components/QuestionnaireForm";
 import { ResultsPage, AssessmentResults, CategoryScore } from "@/components/ResultsPage";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { questionnairesApi, questionsApi, userResponsesApi } from "@/lib/api";
 import { generatePDFReport } from "@/lib/pdfGenerator";
 
 interface DatabaseQuestion {
@@ -33,11 +33,8 @@ const Assessment = () => {
     setLoading(true);
     try {
       // Get the first active questionnaire
-      const { data: questionnaires } = await supabase
-        .from('questionnaires')
-        .select('id, title')
-        .eq('is_active', true)
-        .limit(1);
+      const questionnairesResponse = await questionnairesApi.getActive();
+      const questionnaires = questionnairesResponse.data as any[];
 
       if (!questionnaires || questionnaires.length === 0) {
         toast({
@@ -49,18 +46,8 @@ const Assessment = () => {
       }
 
       // Get questions for this questionnaire with their categories
-      const { data: questions, error } = await supabase
-        .from('questions')
-        .select(`
-          id,
-          text,
-          options,
-          categories!inner(name)
-        `)
-        .eq('questionnaire_id', questionnaires[0].id)
-        .order('order_number');
-
-      if (error) throw error;
+      const questionsResponse = await questionsApi.getByQuestionnaire(questionnaires[0].id);
+      const questions = questionsResponse.data as any[];
 
       // Transform data into required format
       const questionnaireData: QuestionnaireData = {
@@ -68,8 +55,8 @@ const Assessment = () => {
         categories: {}
       };
 
-      (questions as any[])?.forEach((q) => {
-        const categoryName = q.categories.name;
+      questions?.forEach((q: any) => {
+        const categoryName = q.categoryId?.name || 'Uncategorized';
         if (!questionnaireData.categories[categoryName]) {
           questionnaireData.categories[categoryName] = {
             name: categoryName,

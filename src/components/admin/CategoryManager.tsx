@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { categoriesApi, questionnairesApi, ApiError } from "@/lib/api";
 import { Plus, Edit, Trash2, Upload, X } from "lucide-react";
 
 interface Category {
@@ -46,39 +46,28 @@ export const CategoryManager = () => {
   }, []);
 
   const fetchCategories = async () => {
-    const { data, error } = await supabase
-      .from('categories')
-      .select(`
-        *,
-        questionnaires(title)
-      `)
-      .order('name');
-
-    if (error) {
+    try {
+      const response = await categoriesApi.getAll();
+      setCategories(response.data || []);
+    } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch categories",
         variant: "destructive",
       });
-    } else {
-      setCategories(data || []);
     }
   };
 
   const fetchQuestionnaires = async () => {
-    const { data, error } = await supabase
-      .from('questionnaires')
-      .select('id, title')
-      .order('title');
-
-    if (error) {
+    try {
+      const response = await questionnairesApi.getAll();
+      setQuestionnaires(response.data || []);
+    } catch (error) {
       toast({
         title: "Error",
         description: "Failed to fetch questionnaires",
         variant: "destructive",
       });
-    } else {
-      setQuestionnaires(data || []);
     }
   };
 
@@ -105,24 +94,13 @@ export const CategoryManager = () => {
       };
 
       if (editingId) {
-        const { error } = await supabase
-          .from('categories')
-          .update(submitData)
-          .eq('id', editingId);
-
-        if (error) throw error;
-
+        await categoriesApi.update(editingId, submitData);
         toast({
           title: "Success",
           description: "Category updated successfully",
         });
       } else {
-        const { error } = await supabase
-          .from('categories')
-          .insert([submitData]);
-
-        if (error) throw error;
-
+        await categoriesApi.create(submitData);
         toast({
           title: "Success",
           description: "Category created successfully",
@@ -162,23 +140,19 @@ export const CategoryManager = () => {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this category?")) return;
 
-    const { error } = await supabase
-      .from('categories')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete category",
-        variant: "destructive",
-      });
-    } else {
+    try {
+      await categoriesApi.delete(id);
       toast({
         title: "Success",
         description: "Category deleted successfully",
       });
       fetchCategories();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete category",
+        variant: "destructive",
+      });
     }
   };
 
