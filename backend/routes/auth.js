@@ -1,6 +1,6 @@
 import express from 'express';
 import { body, validationResult } from 'express-validator';
-import User from '../models/User.js';
+import UserAccess from '../models/UserAccess.js';
 import jwt from 'jsonwebtoken';
 
 const router = express.Router();
@@ -49,7 +49,7 @@ router.post('/signup', validateSignup, async (req, res) => {
     const { name, email, password, role = 'user' } = req.body;
 
     // Check if user already exists
-    const existingUser = await User.findByEmail(email);
+    const existingUser = await UserAccess.findByEmail(email);
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -58,7 +58,7 @@ router.post('/signup', validateSignup, async (req, res) => {
     }
 
     // Create new user
-    const user = new User({
+    const user = new UserAccess({
       name,
       email,
       password,
@@ -112,9 +112,12 @@ router.post('/login', validateLogin, async (req, res) => {
     }
 
     const { email, password } = req.body;
-
+    console.log(req.body);
+    console.log("================");
+    
+console.log(email, password);
     // Find user by email
-    const user = await User.findByEmail(email);
+    const user = await UserAccess.findByEmail(email);
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -184,7 +187,7 @@ router.get('/me', async (req, res) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    const user = await User.findById(decoded.userId).select('-password');
+    const user = await UserAccess.findById(decoded.userId).select('-password');
     
     if (!user || !user.isActive) {
       return res.status(401).json({

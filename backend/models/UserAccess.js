@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-const userSchema = new mongoose.Schema({
+const userAccessSchema = new mongoose.Schema({
   name: {
     type: String,
     required: [true, 'Name is required'],
@@ -41,12 +41,12 @@ const userSchema = new mongoose.Schema({
 });
 
 // Indexes for better query performance
-userSchema.index({ email: 1 });
-userSchema.index({ role: 1 });
-userSchema.index({ isActive: 1 });
+userAccessSchema.index({ email: 1 });
+userAccessSchema.index({ role: 1 });
+userAccessSchema.index({ isActive: 1 });
 
 // Pre-save middleware to hash password
-userSchema.pre('save', async function(next) {
+userAccessSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   
   try {
@@ -59,31 +59,31 @@ userSchema.pre('save', async function(next) {
 });
 
 // Instance method to compare password
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userAccessSchema.methods.comparePassword = async function(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Instance method to update last login
-userSchema.methods.updateLastLogin = function() {
+userAccessSchema.methods.updateLastLogin = function() {
   this.lastLogin = new Date();
   return this.save();
 };
 
 // Static method to find by email
-userSchema.statics.findByEmail = function(email) {
+userAccessSchema.statics.findByEmail = function(email) {
   return this.findOne({ email: email.toLowerCase() });
 };
 
 // Static method to find active users
-userSchema.statics.findActive = function() {
+userAccessSchema.statics.findActive = function() {
   return this.find({ isActive: true });
 };
 
 // Static method to find admins
-userSchema.statics.findAdmins = function() {
+userAccessSchema.statics.findAdmins = function() {
   return this.find({ role: 'admin', isActive: true });
 };
 
-const User = mongoose.model('User', userSchema);
+const UserAccess = mongoose.model('UserAccess', userAccessSchema);
 
-export default User;
+export default UserAccess;
