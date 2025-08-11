@@ -48,7 +48,18 @@ export const CategoryManager = () => {
   const fetchCategories = async () => {
     try {
       const response = await categoriesApi.getAll();
-      setCategories(response.data || []);
+      const raw = (response as any)?.data || [];
+      
+      // Normalize the data to match our frontend interface
+      const normalized: Category[] = raw.map((c: any) => ({
+        id: c.id || c._id,
+        name: c.name,
+        description: c.description ?? null,
+        questionnaire_id: c.questionnaire_id || c.questionnaireId || (typeof c.questionnaireId === 'object' ? c.questionnaireId?._id : null),
+        icon_url: c.icon_url || c.iconUrl || c.iconImageUrl || null,
+      }));
+      
+      setCategories(normalized);
     } catch (error) {
       toast({
         title: "Error",
@@ -61,7 +72,15 @@ export const CategoryManager = () => {
   const fetchQuestionnaires = async () => {
     try {
       const response = await questionnairesApi.getAll();
-      setQuestionnaires(response.data || []);
+      const raw = (response as any)?.data || [];
+      
+      // Normalize the data to match our frontend interface
+      const normalized: Questionnaire[] = raw.map((q: any) => ({
+        id: q.id || q._id,
+        title: q.title,
+      }));
+      
+      setQuestionnaires(normalized);
     } catch (error) {
       toast({
         title: "Error",
@@ -76,36 +95,44 @@ export const CategoryManager = () => {
     setLoading(true);
 
     try {
-      // Upload icon if a new file is selected
-      let iconUrl = formData.icon_url;
-      if (selectedFile) {
-        iconUrl = await handleIconUpload();
-        if (iconUrl === null) {
-          setLoading(false);
-          return;
-        }
-      }
-
-      // Convert "none" back to null for database storage
-      const submitData = {
-        ...formData,
-        questionnaire_id: formData.questionnaire_id === "none" ? null : formData.questionnaire_id,
-        icon_url: iconUrl || null
+      // Build payload aligned with backend field names
+      const payload: any = {
+        name: formData.name,
+        description: formData.description || undefined,
+        questionnaireId: formData.questionnaire_id === "none" ? undefined : formData.questionnaire_id,
+        iconUrl: formData.icon_url || undefined,
       };
 
-      if (editingId) {
-        await categoriesApi.update(editingId, submitData);
-        toast({
-          title: "Success",
-          description: "Category updated successfully",
+      // Create or update core category fields first
+      const response = editingId
+        ? await categoriesApi.update(editingId, payload)
+        : await categoriesApi.create(payload);
+
+      const categoryId = (response as any)?.data?._id || (response as any)?.data?.id || editingId;
+
+      // If a new icon file was selected, upload it to MongoDB
+      if (selectedFile && categoryId) {
+        const uploadResponse = await fetch(`http://localhost:5002/api/categories/${categoryId}/icon`, {
+          method: 'POST',
+          body: (() => {
+            const formData = new FormData();
+            formData.append('icon', selectedFile);
+            return formData;
+          })(),
         });
-      } else {
-        await categoriesApi.create(submitData);
-        toast({
-          title: "Success",
-          description: "Category created successfully",
-        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload icon');
+        }
+
+        const result = await uploadResponse.json();
+        console.log('Icon upload result:', result);
       }
+
+      toast({
+        title: "Success",
+        description: editingId ? "Category updated successfully" : "Category created successfully",
+      });
 
       setFormData({ name: "", description: "", questionnaire_id: "none", icon_url: "" });
       setIsEditing(false);
@@ -191,37 +218,9 @@ export const CategoryManager = () => {
     }
   };
 
-  const handleIconUpload = async () => {
-    if (!selectedFile) return null;
-
-    setUploading(true);
-    try {
-      const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('category-icons')
-        .upload(filePath, selectedFile);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from('category-icons')
-        .getPublicUrl(filePath);
-
-      return data.publicUrl;
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: `Failed to upload icon: ${error.message}`,
-        variant: "destructive",
-      });
-      return null;
-    } finally {
-      setUploading(false);
-    }
-  };
+  // Icon upload is now handled directly in handleSubmit
+  // This function is no longer needed
+  const handleIconUpload = async () => null;
 
   const removeIcon = () => {
     setSelectedFile(null);

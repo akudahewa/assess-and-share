@@ -54,7 +54,20 @@ export const QuestionnaireManager = () => {
   const fetchQuestionnaires = async () => {
     try {
       const response = await questionnairesApi.getAll();
-      setQuestionnaires((response.data as Questionnaire[]) || []);
+      const raw = (response as any)?.data || [];
+      const normalized: Questionnaire[] = raw.map((q: any) => ({
+        id: q.id || q._id,
+        title: q.title,
+        description: q.description ?? null,
+        isActive: !!q.isActive,
+        categories: (q.categories || []).map((c: any) => ({
+          id: c.id || c._id,
+          name: c.name,
+          description: c.description,
+          iconUrl: c.iconUrl || c.iconImageUrl || null,
+        }))
+      }));
+      setQuestionnaires(normalized);
     } catch (error) {
       toast({
         title: "Error",
@@ -82,26 +95,26 @@ export const QuestionnaireManager = () => {
     setLoading(true);
 
     try {
+      let res: any;
       if (editingId) {
-        await questionnairesApi.update(editingId, formData);
-        toast({
-          title: "Success",
-          description: "Questionnaire updated successfully",
-        });
+        res = await questionnairesApi.update(editingId, formData);
+        toast({ title: "Success", description: "Questionnaire updated successfully" });
       } else {
-        await questionnairesApi.create({
-          ...formData,
-          createdBy: "admin" // TODO: Get actual user ID from auth system
-        });
-        toast({
-          title: "Success",
-          description: "Questionnaire created successfully",
-        });
+        res = await questionnairesApi.create({ ...formData, createdBy: "admin" });
+        toast({ title: "Success", description: "Questionnaire created successfully" });
       }
+
+      const affectedId: string | null = (res as any)?.data?._id || (res as any)?.data?.id || editingId;
 
       setFormData({ title: "", description: "", isActive: true, categories: [] });
       setIsEditing(false);
       setEditingId(null);
+
+      // Optimistically enforce single-active in UI if we just activated one
+      if (formData.isActive && affectedId) {
+        setQuestionnaires(prev => prev.map(q => ({ ...q, isActive: q.id === affectedId })));
+      }
+      // Refresh from server to ensure state matches DB
       fetchQuestionnaires();
     } catch (error: any) {
       toast({

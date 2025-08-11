@@ -22,6 +22,10 @@ const categorySchema = new mongoose.Schema({
       message: 'Icon URL must be a valid HTTP/HTTPS URL'
     }
   },
+  iconImage: {
+    type: Buffer,
+    select: false // Don't return by default
+  },
   questionnaireId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Questionnaire'
@@ -45,6 +49,14 @@ categorySchema.index({ name: 1 });
 categorySchema.index({ questionnaireId: 1 });
 categorySchema.index({ isActive: 1 });
 categorySchema.index({ order: 1 });
+
+// Add a virtual for serving the image as a URL
+categorySchema.virtual('iconImageUrl').get(function() {
+  if (this.iconImage && this._id) {
+    return `/api/categories/${this._id}/icon`;
+  }
+  return null;
+});
 
 // Pre-save middleware to ensure unique names
 categorySchema.pre('save', async function(next) {

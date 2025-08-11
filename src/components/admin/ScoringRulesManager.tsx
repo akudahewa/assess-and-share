@@ -11,11 +11,11 @@ import { Edit, Trash2 } from "lucide-react";
 
 interface ScoringRule {
   id: string;
-  questionnaire_id: string;
-  category_id: string | null;
-  min_percentage: number;
-  max_percentage: number;
-  level_name: string;
+  questionnaireId: string;
+  categoryId: string | null;
+  minPercentage: number;
+  maxPercentage: number;
+  levelName: string;
   description: string | null;
   questionnaires: { title: string } | null;
   categories: { name: string } | null;
@@ -38,11 +38,11 @@ export const ScoringRulesManager = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    questionnaire_id: "",
-    category_id: "",
-    min_percentage: "",
-    max_percentage: "",
-    level_name: "",
+    questionnaireId: "",
+    categoryId: "",
+    minPercentage: "",
+    maxPercentage: "",
+    levelName: "",
     description: "",
   });
   const [loading, setLoading] = useState(false);
@@ -57,8 +57,27 @@ export const ScoringRulesManager = () => {
   const fetchScoringRules = async () => {
     try {
       const response = await scoringRulesApi.getAll();
-      setScoringRules(response.data || []);
+      console.log('Scoring rules API response:', response);
+      const rawData = (response as any)?.data || [];
+      console.log('Raw scoring rules data:', rawData);
+      
+      // Normalize the data to match our frontend interface
+      const normalized: ScoringRule[] = rawData.map((rule: any) => ({
+        id: rule._id || rule.id,
+        questionnaireId: rule.questionnaireId?._id || rule.questionnaireId,
+        categoryId: rule.categoryId?._id || rule.categoryId,
+        minPercentage: rule.minPercentage,
+        maxPercentage: rule.maxPercentage,
+        levelName: rule.levelName,
+        description: rule.description,
+        questionnaires: rule.questionnaireId,
+        categories: rule.categoryId,
+      }));
+      
+      console.log('Normalized scoring rules:', normalized);
+      setScoringRules(normalized);
     } catch (error) {
+      console.error('Error fetching scoring rules:', error);
       toast({
         title: "Error",
         description: "Failed to fetch scoring rules",
@@ -70,7 +89,16 @@ export const ScoringRulesManager = () => {
   const fetchQuestionnaires = async () => {
     try {
       const response = await questionnairesApi.getAll();
-      setQuestionnaires(response.data || []);
+      const rawData = (response as any)?.data || [];
+      console.log('Raw questionnaires data:', rawData);
+      
+      // Normalize the data to match our frontend interface
+      const normalized: Questionnaire[] = rawData.map((q: any) => ({
+        id: q._id || q.id,
+        title: q.title,
+      }));
+      
+      setQuestionnaires(normalized);
     } catch (error) {
       console.error('Error fetching questionnaires:', error);
     }
@@ -79,7 +107,16 @@ export const ScoringRulesManager = () => {
   const fetchCategories = async () => {
     try {
       const response = await categoriesApi.getAll();
-      setCategories(response.data || []);
+      const rawData = (response as any)?.data || [];
+      console.log('Raw categories data:', rawData);
+      
+      // Normalize the data to match our frontend interface
+      const normalized: Category[] = rawData.map((c: any) => ({
+        id: c._id || c.id,
+        name: c.name,
+      }));
+      
+      setCategories(normalized);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
@@ -90,23 +127,71 @@ export const ScoringRulesManager = () => {
     setLoading(true);
 
     try {
-      const submitData = {
-        questionnaire_id: formData.questionnaire_id,
-        category_id: formData.category_id === "all" ? null : formData.category_id || null,
-        min_percentage: parseFloat(formData.min_percentage),
-        max_percentage: parseFloat(formData.max_percentage),
-        level_name: formData.level_name,
-        description: formData.description || null,
+      const minPercentage = parseFloat(formData.minPercentage);
+      const maxPercentage = parseFloat(formData.maxPercentage);
+
+      // Frontend validation
+      if (minPercentage >= maxPercentage) {
+        toast({
+          title: "Validation Error",
+          description: "Minimum percentage must be less than maximum percentage",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Check for overlapping ranges with existing rules
+      const overlappingRule = scoringRules.find(rule => {
+        if (rule.questionnaireId !== formData.questionnaireId) return false;
+        if (rule.id === editingId) return false; // Skip current rule when editing
+        
+        const ruleMin = rule.minPercentage;
+        const ruleMax = rule.maxPercentage;
+        
+        // Check if ranges overlap
+        return (minPercentage <= ruleMax && maxPercentage >= ruleMin);
+      });
+
+      if (overlappingRule) {
+        toast({
+          title: "Validation Error",
+          description: `Range overlaps with existing rule "${overlappingRule.levelName}" (${overlappingRule.minPercentage}% - ${overlappingRule.maxPercentage}%)`,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      const submitData: any = {
+        questionnaireId: formData.questionnaireId,
+        minPercentage,
+        maxPercentage,
+        levelName: formData.levelName,
       };
 
+      // Only include categoryId if it's not "all" (which means a specific category)
+      if (formData.categoryId && formData.categoryId !== "all") {
+        submitData.categoryId = formData.categoryId;
+      }
+
+      // Only include description if it's not empty
+      if (formData.description && formData.description.trim()) {
+        submitData.description = formData.description.trim();
+      }
+
+      console.log('Submitting scoring rule data:', submitData);
+
       if (editingId) {
-        await scoringRulesApi.update(editingId, submitData);
+        const response = await scoringRulesApi.update(editingId, submitData);
+        console.log('Update response:', response);
         toast({
           title: "Success",
           description: "Scoring rule updated successfully",
         });
       } else {
-        await scoringRulesApi.create(submitData);
+        const response = await scoringRulesApi.create(submitData);
+        console.log('Create response:', response);
         toast({
           title: "Success",
           description: "Scoring rule created successfully",
@@ -114,20 +199,29 @@ export const ScoringRulesManager = () => {
       }
 
       setFormData({
-        questionnaire_id: "",
-        category_id: "",
-        min_percentage: "",
-        max_percentage: "",
-        level_name: "",
+        questionnaireId: "",
+        categoryId: "",
+        minPercentage: "",
+        maxPercentage: "",
+        levelName: "",
         description: "",
       });
       setIsEditing(false);
       setEditingId(null);
       fetchScoringRules();
     } catch (error: any) {
+      console.error('Error creating/updating scoring rule:', error);
+      let errorMessage = "Failed to create/update scoring rule";
+      
+      if (error.errors && Array.isArray(error.errors)) {
+        errorMessage = error.errors.map((e: any) => `${e.path}: ${e.msg}`).join(', ');
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -137,11 +231,11 @@ export const ScoringRulesManager = () => {
 
   const handleEdit = (rule: ScoringRule) => {
     setFormData({
-      questionnaire_id: rule.questionnaire_id,
-      category_id: rule.category_id || "all",
-      min_percentage: rule.min_percentage.toString(),
-      max_percentage: rule.max_percentage.toString(),
-      level_name: rule.level_name,
+      questionnaireId: rule.questionnaireId,
+      categoryId: rule.categoryId || "all",
+      minPercentage: rule.minPercentage.toString(),
+      maxPercentage: rule.maxPercentage.toString(),
+      levelName: rule.levelName,
       description: rule.description || "",
     });
     setEditingId(rule.id);
@@ -167,13 +261,25 @@ export const ScoringRulesManager = () => {
     }
   };
 
+  const getAvailableRanges = (questionnaireId: string) => {
+    const existingRules = scoringRules.filter(rule => rule.questionnaireId === questionnaireId);
+    if (existingRules.length === 0) {
+      return "No rules yet - you can create rules for any percentage range (0-100%)";
+    }
+    
+    const sortedRules = [...existingRules].sort((a, b) => a.minPercentage - b.minPercentage);
+    const ranges = sortedRules.map(rule => `${rule.minPercentage}%-${rule.maxPercentage}%`);
+    
+    return `Existing ranges: ${ranges.join(', ')}. Available ranges: 0-${sortedRules[0].minPercentage}%, ${sortedRules[sortedRules.length - 1].maxPercentage}-100%`;
+  };
+
   const resetForm = () => {
     setFormData({
-      questionnaire_id: "",
-      category_id: "",
-      min_percentage: "",
-      max_percentage: "",
-      level_name: "",
+      questionnaireId: "",
+      categoryId: "",
+      minPercentage: "",
+      maxPercentage: "",
+      levelName: "",
       description: "",
     });
     setIsEditing(false);
@@ -193,10 +299,10 @@ export const ScoringRulesManager = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="questionnaire_id">Questionnaire</Label>
+                <Label htmlFor="questionnaireId">Questionnaire</Label>
                 <Select
-                  value={formData.questionnaire_id}
-                  onValueChange={(value) => setFormData({ ...formData, questionnaire_id: value })}
+                  value={formData.questionnaireId}
+                  onValueChange={(value) => setFormData({ ...formData, questionnaireId: value })}
                   required
                 >
                   <SelectTrigger>
@@ -212,10 +318,10 @@ export const ScoringRulesManager = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="category_id">Category (Optional)</Label>
+                <Label htmlFor="categoryId">Category (Optional)</Label>
                 <Select
-                  value={formData.category_id}
-                  onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                  value={formData.categoryId}
+                  onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category (optional)" />
@@ -234,42 +340,48 @@ export const ScoringRulesManager = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="min_percentage">Min Percentage</Label>
+                <Label htmlFor="minPercentage">Min Percentage</Label>
                 <Input
-                  id="min_percentage"
+                  id="minPercentage"
                   type="number"
                   min="0"
                   max="100"
                   step="0.01"
-                  value={formData.min_percentage}
-                  onChange={(e) => setFormData({ ...formData, min_percentage: e.target.value })}
+                  value={formData.minPercentage}
+                  onChange={(e) => setFormData({ ...formData, minPercentage: e.target.value })}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="max_percentage">Max Percentage</Label>
+                <Label htmlFor="maxPercentage">Max Percentage</Label>
                 <Input
-                  id="max_percentage"
+                  id="maxPercentage"
                   type="number"
                   min="0"
                   max="100"
                   step="0.01"
-                  value={formData.max_percentage}
-                  onChange={(e) => setFormData({ ...formData, max_percentage: e.target.value })}
+                  value={formData.maxPercentage}
+                  onChange={(e) => setFormData({ ...formData, maxPercentage: e.target.value })}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="level_name">Level Name</Label>
+                <Label htmlFor="levelName">Level Name</Label>
                 <Input
-                  id="level_name"
-                  value={formData.level_name}
-                  onChange={(e) => setFormData({ ...formData, level_name: e.target.value })}
+                  id="levelName"
+                  value={formData.levelName}
+                  onChange={(e) => setFormData({ ...formData, levelName: e.target.value })}
                   placeholder="e.g., High, Medium, Low"
                   required
                 />
               </div>
             </div>
+            
+            {formData.questionnaireId && (
+              <div className="text-sm text-muted-foreground p-3 bg-muted rounded-md">
+                {getAvailableRanges(formData.questionnaireId)}
+              </div>
+            )}
             
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
@@ -308,13 +420,13 @@ export const ScoringRulesManager = () => {
             {scoringRules.map((rule) => (
               <div key={rule.id} className="flex items-center justify-between p-4 border rounded-lg">
                 <div>
-                  <h4 className="font-medium">{rule.level_name}</h4>
+                  <h4 className="font-medium">{rule.levelName}</h4>
                   <p className="text-sm text-muted-foreground">
                     {rule.questionnaires?.title} 
                     {rule.categories && ` - ${rule.categories.name}`}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {rule.min_percentage}% - {rule.max_percentage}%
+                    {rule.minPercentage}% - {rule.maxPercentage}%
                   </p>
                   {rule.description && (
                     <p className="text-xs text-muted-foreground mt-1">{rule.description}</p>

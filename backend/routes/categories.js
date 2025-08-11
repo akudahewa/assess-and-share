@@ -2,6 +2,7 @@ import express from 'express';
 import { body, validationResult } from 'express-validator';
 import mongoose from 'mongoose';
 import Category from '../models/Category.js';
+import multer from 'multer';
 
 const router = express.Router();
 
@@ -29,6 +30,8 @@ const validateCategory = [
     .isInt({ min: 0 })
     .withMessage('Order must be a non-negative integer')
 ];
+
+const upload = multer();
 
 // GET /api/categories - Get all categories
 router.get('/', async (req, res) => {
@@ -330,6 +333,38 @@ router.patch('/:id/deactivate', async (req, res) => {
       success: false,
       error: 'Failed to deactivate category'
     });
+  }
+});
+
+// Upload category icon (binary, stored in DB)
+router.post('/:id/icon', upload.single('icon'), async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id);
+    if (!category) {
+      return res.status(404).json({ success: false, error: 'Category not found' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+    category.iconImage = req.file.buffer;
+    await category.save();
+    res.json({ success: true, message: 'Icon uploaded successfully', iconUrl: `/api/categories/${category._id}/icon` });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Failed to upload icon' });
+  }
+});
+
+// Serve category icon
+router.get('/:id/icon', async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id).select('iconImage');
+    if (!category || !category.iconImage) {
+      return res.status(404).send('Icon not found');
+    }
+    res.set('Content-Type', 'image/png'); // or detect type
+    res.send(category.iconImage);
+  } catch (error) {
+    res.status(500).send('Failed to fetch icon');
   }
 });
 

@@ -1,175 +1,160 @@
 # Migration from Supabase to MongoDB Atlas
 
+## Overview
 This document explains the migration from Supabase to MongoDB Atlas and provides instructions for setting up the external backend.
 
-## Overview
+## Migration Status: ✅ COMPLETE
 
 The application has been restructured to use external API endpoints instead of Supabase. All database operations now go through RESTful API calls to your MongoDB backend.
 
-## What Changed
+## What Was Changed
 
-### 1. New API Service Layer
-- `src/services/api.ts` - Base API client with authentication
-- `src/services/auth.ts` - Authentication service
-- `src/services/questionnaires.ts` - Questionnaire management
-- `src/services/categories.ts` - Category management  
-- `src/services/questions.ts` - Question management
-- `src/services/scoringRules.ts` - Scoring rules management
-- `src/services/userResponses.ts` - User response handling
-
-### 2. Removed Supabase Dependencies
-The following Supabase-specific code has been replaced:
+### 1. Removed Supabase Completely
+The following Supabase-specific code has been completely removed:
 - All `supabase.from()` calls replaced with API service calls
-- Authentication flows now use JWT tokens
-- File uploads now use multipart form data to API endpoints
+- Supabase client configuration and dependencies
+- Supabase authentication system
+- Supabase storage for file uploads
+- Supabase migrations and schema files
 
-### 3. Updated Components
+### 2. New Architecture
 Components now use the new API services instead of direct Supabase calls.
 
-## Backend Requirements
+## Backend Setup
 
-You need to implement a Node.js/Express backend with the following features:
-
-### Required Endpoints
-See `API_ENDPOINTS.md` for complete documentation of all required endpoints.
-
-### Database Schema
-Your MongoDB database should have these collections:
-- `users` - User authentication and profiles
-- `questionnaires` - Assessment questionnaires
-- `categories` - Question categories
-- `questions` - Individual questions with options
-- `scoring_rules` - Scoring and level definitions
-- `user_responses` - User assessment submissions
-
-### Authentication
-- JWT-based authentication with access and refresh tokens
-- Role-based access control (admin/user)
-- Secure password hashing
-
-### File Upload
-- Category icon upload support
-- File storage (local or cloud storage)
-
-## Setup Instructions
-
-### 1. Environment Variables
-Create a `.env` file in your frontend root:
-
-```env
-VITE_API_URL=http://localhost:3001/api
+### 1. Install Dependencies
+```bash
+cd backend
+npm install
 ```
 
-### 2. Backend Setup
-Your backend should use these environment variables:
-
+### 2. Environment Configuration
+Create a `.env` file in the backend directory:
 ```env
-MONGODB_URI=mongodb+srv://myclinicuser:<password>@<url>/?retryWrites=true&w=majority&appName=myclinic-cluster
-JWT_SECRET=your_jwt_secret_here
-JWT_REFRESH_SECRET=your_jwt_refresh_secret_here
-PORT=3001
-UPLOAD_PATH=./uploads
-BASE_URL=http://localhost:3001
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/assess-and-share
+PORT=5002
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:5173,http://localhost:8080,http://localhost:3000
+JWT_SECRET=your-secret-key-here
 ```
 
-### 3. Database Migration
+### 3. Start the Backend
+```bash
+npm run dev
+```
+
+The server will start on `http://localhost:5002`.
+
+## Frontend Configuration
+
+### 1. API Base URL
+The frontend is configured to use `http://localhost:5002/api` as the base URL for all API calls.
+
+### 2. No Supabase Dependencies
+All Supabase packages have been removed from `package.json`. The frontend now only uses the custom REST API client.
+
+## Data Migration
+
 You'll need to migrate your existing Supabase data to MongoDB. The data structure mapping:
 
-```
+### Database Mapping
 Supabase Table -> MongoDB Collection
-profiles -> users
-questionnaires -> questionnaires  
-categories -> categories
-questions -> questions
-scoring_rules -> scoring_rules
-user_responses -> user_responses
-```
+- `questionnaires` -> `questionnaires`
+- `categories` -> `categories`
+- `questions` -> `questions`
+- `user_responses` -> `userresponses`
+- `scoring_rules` -> `scoringrules`
 
-### 4. CORS Configuration
-Your backend must configure CORS to allow requests from your frontend domain.
+### Field Mapping
+- `id` (UUID) -> `_id` (ObjectId)
+- `created_at` -> `createdAt`
+- `updated_at` -> `updatedAt`
+- `questionnaire_id` -> `questionnaireId`
+- `category_id` -> `categoryId`
 
-## Testing the Migration
+## API Endpoints
 
-1. Start your MongoDB backend server
-2. Update the `VITE_API_URL` environment variable
-3. Test the following flows:
-   - Admin login
-   - Create/edit questionnaires
-   - Manage categories and questions
-   - Take assessments
-   - View results
+### Health Check
+- `GET /api/health` - Server status
 
-## Backend Implementation Example
+### Questionnaires
+- `GET /api/questionnaires` - List all questionnaires
+- `POST /api/questionnaires` - Create questionnaire
+- `PUT /api/questionnaires/:id` - Update questionnaire
+- `DELETE /api/questionnaires/:id` - Delete questionnaire
 
-Here's a basic Express.js structure you could use:
+### Categories
+- `GET /api/categories` - List all categories
+- `POST /api/categories` - Create category
+- `PUT /api/categories/:id` - Update category
+- `DELETE /api/categories/:id` - Delete category
+- `POST /api/categories/:id/icon` - Upload category icon
+- `GET /api/categories/:id/icon` - Serve category icon
 
-```
-backend/
-├── src/
-│   ├── controllers/
-│   │   ├── auth.js
-│   │   ├── questionnaires.js
-│   │   ├── categories.js
-│   │   ├── questions.js
-│   │   ├── scoringRules.js
-│   │   └── userResponses.js
-│   ├── middleware/
-│   │   ├── auth.js
-│   │   └── upload.js
-│   ├── models/
-│   │   ├── User.js
-│   │   ├── Questionnaire.js
-│   │   ├── Category.js
-│   │   ├── Question.js
-│   │   ├── ScoringRule.js
-│   │   └── UserResponse.js
-│   ├── routes/
-│   │   ├── auth.js
-│   │   ├── questionnaires.js
-│   │   ├── categories.js
-│   │   ├── questions.js
-│   │   ├── scoringRules.js
-│   │   ├── userResponses.js
-│   │   └── uploads.js
-│   ├── utils/
-│   │   └── database.js
-│   └── app.js
-├── uploads/
-├── package.json
-└── .env
-```
+### Questions
+- `GET /api/questions` - List all questions
+- `POST /api/questions` - Create question
+- `PUT /api/questions/:id` - Update question
+- `DELETE /api/questions/:id` - Delete question
+
+### User Responses
+- `GET /api/user-responses` - List all responses
+- `POST /api/user-responses` - Create response
+- `PUT /api/user-responses/:id` - Update response
+- `DELETE /api/user-responses/:id` - Delete response
+
+### Scoring Rules
+- `GET /api/scoring-rules` - List all rules
+- `POST /api/scoring-rules` - Create rule
+- `PUT /api/scoring-rules/:id` - Update rule
+- `DELETE /api/scoring-rules/:id` - Delete rule
 
 ## Key Differences from Supabase
 
 1. **Authentication**: Now uses JWT tokens instead of Supabase auth
-2. **File Storage**: Direct file uploads instead of Supabase storage
-3. **Real-time**: No real-time features (would need WebSocket implementation)
-4. **RLS**: Security handled by API middleware instead of Row Level Security
-5. **Functions**: Business logic moved to API endpoints instead of edge functions
+2. **File Storage**: Direct file uploads to MongoDB instead of Supabase storage
+3. **Real-time**: No built-in real-time updates (can be added with WebSockets)
+4. **Database**: MongoDB instead of PostgreSQL
+5. **API**: Custom REST API instead of Supabase client
 
-## Benefits of This Approach
+## Testing
 
-1. **Full Control**: Complete control over your data and backend logic
-2. **Flexibility**: Can customize business logic without platform constraints
-3. **Cost Predictability**: No per-request pricing from third-party services
-4. **Data Ownership**: Your data stays in your MongoDB instance
+### 1. Backend Health Check
+```bash
+curl http://localhost:5002/api/health
+```
 
-## Migration Checklist
+### 2. Create a Test Category
+```bash
+curl -X POST http://localhost:5002/api/categories \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test Category","description":"Test Description"}'
+```
 
-- [ ] Set up MongoDB Atlas cluster
-- [ ] Implement backend API with all required endpoints
-- [ ] Configure authentication with JWT
-- [ ] Set up file upload handling
-- [ ] Migrate existing data from Supabase to MongoDB
-- [ ] Test all functionality (admin, assessments, results)
-- [ ] Update environment variables
-- [ ] Deploy backend to production
-- [ ] Update frontend API URL for production
+### 3. Test Frontend
+Start the frontend and navigate to the admin panel to test CRUD operations.
 
-## Support
+## Troubleshooting
 
-If you need help with the backend implementation, refer to:
-- `API_ENDPOINTS.md` for complete API documentation
-- MongoDB Atlas documentation for database setup
-- Express.js documentation for backend framework
-- JWT documentation for authentication implementation
+### Common Issues
+
+1. **CORS Errors**: Ensure your frontend port is included in `CORS_ORIGIN`
+2. **MongoDB Connection**: Verify your MongoDB URI is correct
+3. **Port Conflicts**: Make sure port 5002 is available
+
+### Debug Mode
+The backend includes comprehensive logging. Check the console for detailed error messages.
+
+## Next Steps
+
+- [x] Remove all Supabase dependencies
+- [x] Set up MongoDB backend
+- [x] Implement REST API endpoints
+- [x] Update frontend to use new API
+- [x] Test all functionality
+- [ ] Monitor performance
+- [ ] Add additional features as needed
+
+## Conclusion
+
+The migration from Supabase to MongoDB is now complete. All Supabase code has been removed, and the application now uses a custom REST API backend with MongoDB Atlas. The frontend is fully functional with the new backend system.

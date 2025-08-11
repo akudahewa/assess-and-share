@@ -56,12 +56,18 @@ export const ResponseDetailViewer = ({ response, isOpen, onClose }: ResponseDeta
     
     setLoading(true);
     try {
+      // Support both string and object for questionnaireId
+      const questionnaireId =
+        typeof response.questionnaireId === 'object' && response.questionnaireId !== null
+          ? response.questionnaireId._id
+          : response.questionnaireId;
+
       // Fetch questionnaire details
-      const questionnaireResponse = await questionnairesApi.getById(response.questionnaireId);
+      const questionnaireResponse = await questionnairesApi.getById(questionnaireId);
       setQuestionnaire(questionnaireResponse.data as Questionnaire);
 
       // Fetch questions for this questionnaire
-      const questionsResponse = await questionsApi.getByQuestionnaire(response.questionnaireId);
+      const questionsResponse = await questionsApi.getByQuestionnaire(questionnaireId);
       setQuestions(questionsResponse.data as Question[]);
     } catch (error) {
       toast({
@@ -122,9 +128,11 @@ export const ResponseDetailViewer = ({ response, isOpen, onClose }: ResponseDeta
     if (!question) return value;
 
     switch (question.type) {
-      case 'multiple_choice':
+      case 'multiple_choice': {
+        // Always match value to option.value and display label
         const option = question.options?.find(opt => opt.value === value);
-        return option?.label || value;
+        return option ? option.label : value;
+      }
       case 'rating':
         return `${value}/5`;
       case 'text':

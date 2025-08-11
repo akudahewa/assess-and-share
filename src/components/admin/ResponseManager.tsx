@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { userResponsesApi, questionnairesApi, ApiError } from "@/lib/api";
-import { Download, Filter, Search, Eye, Calendar, User, Mail } from "lucide-react";
+import { Download, Filter, Search, Eye, Calendar, User, Mail, Trash2 } from "lucide-react";
 import { ResponseDetailViewer } from "./ResponseDetailViewer";
 
 interface UserResponse {
@@ -116,6 +116,18 @@ export const ResponseManager = () => {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Delete this response permanently?')) return;
+    try {
+      await userResponsesApi.delete(id);
+      toast({ title: 'Deleted', description: 'Response deleted successfully' });
+      // Optimistically update list
+      setResponses(prev => prev.filter(r => r.id !== id));
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to delete response', variant: 'destructive' });
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -175,7 +187,12 @@ export const ResponseManager = () => {
     }
   });
 
-  const getQuestionnaireTitle = (questionnaireId: string) => {
+  const getQuestionnaireTitle = (questionnaireId: string | { _id: string; title: string }) => {
+    // If questionnaireId is an object (populated), use its title
+    if (typeof questionnaireId === 'object' && questionnaireId !== null && 'title' in questionnaireId) {
+      return questionnaireId.title || 'Unknown Questionnaire';
+    }
+    // Otherwise, look up in the questionnaires array
     const questionnaire = questionnaires.find(q => q.id === questionnaireId);
     return questionnaire?.title || 'Unknown Questionnaire';
   };
@@ -317,6 +334,14 @@ export const ResponseManager = () => {
                     >
                       <Eye className="w-4 h-4 mr-1" />
                       View Details
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(response.id)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete
                     </Button>
                   </div>
                 </div>

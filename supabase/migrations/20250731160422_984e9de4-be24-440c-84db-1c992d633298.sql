@@ -1,1 +1,0 @@
-UPDATE profiles SET role = 'admin' WHERE email = 'amila@libt.co.uk';

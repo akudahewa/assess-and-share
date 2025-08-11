@@ -10,9 +10,16 @@ const validateScoringRule = [
     .isMongoId()
     .withMessage('Valid questionnaire ID is required'),
   body('categoryId')
-    .optional()
-    .isMongoId()
-    .withMessage('Valid category ID is required'),
+    .optional({ nullable: true, checkFalsy: false })
+    .custom((value) => {
+      // Allow null, undefined, or valid MongoDB ID
+      if (value === null || value === undefined) {
+        return true;
+      }
+      // If value is provided, it must be a valid MongoDB ID
+      return /^[0-9a-fA-F]{24}$/.test(value);
+    })
+    .withMessage('Category ID must be a valid MongoDB ID or null'),
   body('minPercentage')
     .isFloat({ min: 0, max: 100 })
     .withMessage('Minimum percentage must be between 0 and 100'),

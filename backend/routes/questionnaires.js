@@ -178,13 +178,24 @@ router.post('/', validateQuestionnaire, async (req, res) => {
     
     const questionnaire = new Questionnaire(req.body);
     await questionnaire.save();
+
+    // If this questionnaire is marked active, ensure all others are deactivated
+    if (questionnaire.isActive) {
+      await Questionnaire.updateMany(
+        { _id: { $ne: questionnaire._id } },
+        { isActive: false }
+      );
+    }
     
     // Populate categories before sending response
     await questionnaire.populate('categories', 'name description iconUrl');
     
+    // Return the latest version after potential global update
+    const created = await Questionnaire.findById(questionnaire._id)
+      .populate('categories', 'name description iconUrl');
     res.status(201).json({
       success: true,
-      data: questionnaire,
+      data: created,
       message: 'Questionnaire created successfully'
     });
   } catch (error) {
@@ -221,6 +232,14 @@ router.put('/:id', validateQuestionnaire, async (req, res) => {
       });
     }
     
+    // If now active, deactivate all other questionnaires
+    if (questionnaire.isActive) {
+      await Questionnaire.updateMany(
+        { _id: { $ne: questionnaire._id } },
+        { isActive: false }
+      );
+    }
+
     // Populate categories before sending response
     await questionnaire.populate('categories', 'name description iconUrl');
     
