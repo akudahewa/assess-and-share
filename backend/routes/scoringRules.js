@@ -374,4 +374,77 @@ router.post('/bulk', async (req, res) => {
   }
 });
 
+// POST /api/scoring-rules/calculate-results - Calculate assessment results with dynamic scoring
+router.post('/calculate-results', async (req, res) => {
+  try {
+    const { 
+      questionnaireId, 
+      categoryScores, 
+      totalScore, 
+      maxPossibleScore 
+    } = req.body;
+    
+    if (!questionnaireId || !categoryScores || totalScore === undefined || maxPossibleScore === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'questionnaireId, categoryScores, totalScore, and maxPossibleScore are required'
+      });
+    }
+    
+    // Calculate overall percentage
+    const overallPercentage = maxPossibleScore > 0 ? Math.round((totalScore / maxPossibleScore) * 100 * 100) / 100 : 0;
+    
+    // Get scoring rules for this questionnaire
+    const scoringRules = await ScoringRule.find({ questionnaireId }).populate('categoryId', 'name');
+
+    // Find overall scoring rule (categoryId is null or not set)
+    const overallRule = scoringRules.find(rule => 
+      !rule.categoryId && 
+      overallPercentage >= rule.minPercentage && 
+      overallPercentage <= rule.maxPercentage
+    );
+
+    // Calculate category-level results using only in-range matches for the same category
+    const categoryResults = await Promise.all(
+      categoryScores.map(async (categoryScore) => {
+        const { categoryId, score, maxScore } = categoryScore;
+        const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100 * 100) / 100 : 0;
+
+        // Find category-specific scoring rule that matches by category and range
+        const categoryRule = scoringRules.find(rule => 
+          rule.categoryId && 
+          rule.categoryId._id.toString() === categoryId &&
+          percentage >= rule.minPercentage && 
+          percentage <= rule.maxPercentage
+        );
+
+        return {
+          categoryId,
+          percentage,
+          levelName: categoryRule?.levelName || 'Unknown'
+        };
+      })
+    );
+    
+    const result = {
+      overall: {
+        percentage: overallPercentage,
+        levelName: overallRule?.levelName || 'Unknown'
+      },
+      categories: categoryResults
+    };
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error calculating assessment results:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to calculate assessment results'
+    });
+  }
+});
+
 export default router; 

@@ -12,7 +12,7 @@ export interface CategoryScore {
   score: number;
   maxScore: number;
   percentage: number;
-  level: "High" | "Medium" | "Low";
+  level: string; // Changed to string to support dynamic level names
   color: string;
 }
 
@@ -25,6 +25,7 @@ export interface AssessmentResults {
   questionnaireName?: string;
   scores: CategoryScore[];
   overallScore: number;
+  overallLevel: string; // Added for dynamic level name
   reflections: {
     [category: string]: string[];
   };
@@ -39,11 +40,16 @@ interface ResultsPageProps {
 
 export const ResultsPage = ({ results, onRestart, onDownloadPDF, onEmailReport }: ResultsPageProps) => {
   const getLevelColor = (level: string) => {
-    switch (level) {
-      case "High": return "success";
-      case "Medium": return "warning";
-      case "Low": return "destructive";
-      default: return "secondary";
+    // Handle dynamic level names by checking for common patterns
+    const levelLower = level.toLowerCase();
+    if (levelLower.includes('high') || levelLower.includes('excellent') || levelLower.includes('distinction')) {
+      return "success";
+    } else if (levelLower.includes('medium') || levelLower.includes('average') || levelLower.includes('moderate')) {
+      return "warning";
+    } else if (levelLower.includes('low') || levelLower.includes('poor') || levelLower.includes('needs')) {
+      return "destructive";
+    } else {
+      return "secondary";
     }
   };
 
@@ -149,10 +155,10 @@ export const ResultsPage = ({ results, onRestart, onDownloadPDF, onEmailReport }
                     {results.overallScore}%
                   </div>
                   <Badge 
-                    variant={getLevelColor(results.overallScore >= 75 ? "High" : results.overallScore >= 50 ? "Medium" : "Low")}
+                    variant={getLevelColor(results.overallLevel)}
                     className="mb-4"
                   >
-                    {results.overallScore >= 75 ? "High" : results.overallScore >= 50 ? "Medium" : "Low"} Performance
+                    {results.overallLevel} Performance
                   </Badge>
                   <div className="w-32 h-32 mx-auto">
                     <ResponsiveContainer width="100%" height="100%">
@@ -192,7 +198,7 @@ export const ResultsPage = ({ results, onRestart, onDownloadPDF, onEmailReport }
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">{score.percentage}%</span>
                           <Badge variant={getLevelColor(score.level)} className="text-xs">
-                            {score.level}
+                            {score.level} 
                           </Badge>
                         </div>
                       </div>

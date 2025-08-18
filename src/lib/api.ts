@@ -282,6 +282,13 @@ export const scoringRulesApi = {
     description?: string;
     color?: string;
   }>) => api.post('/scoring-rules/bulk', { rules }),
+  
+  calculateResults: (data: {
+    questionnaireId: string;
+    categoryScores: Array<{ categoryId: string; score: number; maxScore: number }>;
+    totalScore: number;
+    maxPossibleScore: number;
+  }) => api.post('/scoring-rules/calculate-results', data),
 };
 
 // Sample items API (for demonstration)

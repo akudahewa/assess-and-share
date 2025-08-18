@@ -4,7 +4,7 @@ import { UserInfoForm, UserInfo } from "@/components/UserInfoForm";
 import { QuestionnaireForm, QuestionnaireData, AssessmentAnswers, AnswerOption } from "@/components/QuestionnaireForm";
 import { ResultsPage, AssessmentResults, CategoryScore } from "@/components/ResultsPage";
 import { useToast } from "@/hooks/use-toast";
-import { questionnairesApi, questionsApi, userResponsesApi } from "@/lib/api";
+import { questionnairesApi, questionsApi, userResponsesApi, scoringRulesApi } from "@/lib/api";
 import { generatePDFReport } from "@/lib/pdfGenerator";
 
 interface DatabaseQuestion {
@@ -57,9 +57,12 @@ const Assessment = () => {
 
       questions?.forEach((q: any) => {
         const categoryName = q.categoryId?.name || 'Uncategorized';
+        const categoryId = q.categoryId?._id || categoryName;
+        
         if (!questionnaireData.categories[categoryName]) {
           questionnaireData.categories[categoryName] = {
             name: categoryName,
+            categoryId: categoryId,
             questions: []
           };
         }
@@ -83,8 +86,8 @@ const Assessment = () => {
     }
   };
 
-  const calculateResults = (userInfo: UserInfo, answers: AssessmentAnswers): AssessmentResults => {
-    if (!questionnaire) return { userInfo, scores: [], overallScore: 0, reflections: {} };
+  const calculateResults = async (userInfo: UserInfo, answers: AssessmentAnswers): Promise<AssessmentResults> => {
+    if (!questionnaire) return { userInfo, scores: [], overallScore: 0, overallLevel: "Unknown", reflections: {} };
 
     // Dynamic category colors - generate colors for each category
     const categoryColors: { [key: string]: string } = {};
@@ -93,44 +96,116 @@ const Assessment = () => {
       categoryColors[categoryName] = colorPalette[index % colorPalette.length];
     });
 
-    const scores: CategoryScore[] = Object.entries(questionnaire.categories).map(([categoryName, category]) => {
+    // Calculate scores for each category
+    const categoryScores: Array<{ categoryId: string; score: number; maxScore: number; categoryName: string }> = [];
+    let totalScore = 0;
+    let maxPossibleScore = 0;
+
+    Object.entries(questionnaire.categories).forEach(([categoryName, category]) => {
       const categoryAnswers = category.questions.map(q => answers[q.id] || 0);
-      const totalScore = categoryAnswers.reduce((sum, score) => sum + score, 0);
+      const categoryTotalScore = categoryAnswers.reduce((sum, score) => sum + score, 0);
       
       // Calculate max score based on actual options
-      const maxScore = category.questions.reduce((sum, question) => {
+      const categoryMaxScore = category.questions.reduce((sum, question) => {
         const maxOptionScore = Math.max(...(question.options?.map(opt => opt.score) || [0]));
         return sum + maxOptionScore;
       }, 0);
       
-      const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+      // Use the actual category ID from the questionnaire data
+      const categoryId = category.categoryId;
       
-      let level: "High" | "Medium" | "Low";
-      if (percentage >= 75) level = "High";
-      else if (percentage >= 50) level = "Medium";
-      else level = "Low";
-
-      return {
-        category: categoryName,
-        score: totalScore,
-        maxScore,
-        percentage,
-        level,
-        color: categoryColors[categoryName as keyof typeof categoryColors] || "#6b7280"
-      };
+      categoryScores.push({
+        categoryId,
+        score: categoryTotalScore,
+        maxScore: categoryMaxScore,
+        categoryName
+      });
+      
+      totalScore += categoryTotalScore;
+      maxPossibleScore += categoryMaxScore;
     });
 
-    const overallScore = Math.round(
-      scores.reduce((sum, score) => sum + score.percentage, 0) / scores.length
-    );
+    try {
+      // Get the active questionnaire ID
+      const questionnairesResponse = await questionnairesApi.getActive();
+      const questionnaires = questionnairesResponse.data as any[];
+      
+      if (!questionnaires || questionnaires.length === 0) {
+        throw new Error("No active questionnaire found");
+      }
 
-    return {
-      userInfo,
-      questionnaireName: questionnaire.title || "Assessment",
-      scores,
-      overallScore,
-      reflections: {} // Would be populated with user reflections
-    };
+      const questionnaireId = questionnaires[0].id;
+      
+      // Call the dynamic scoring API
+      const scoringResponse = await scoringRulesApi.calculateResults({
+        questionnaireId,
+        categoryScores: categoryScores.map(cs => ({
+          categoryId: cs.categoryId,
+          score: cs.score,
+          maxScore: cs.maxScore
+        })),
+        totalScore,
+        maxPossibleScore
+      });
+
+      const scoringData = scoringResponse.data as any;
+
+      // Map the API response back to our CategoryScore format using backend-provided level names
+      const scores: CategoryScore[] = categoryScores.map((cs, index) => {
+        const categoryResult = scoringData.categories[index] || { percentage: 0, levelName: "Unknown" };
+        const categoryPercentage = categoryResult.percentage ?? 0;
+        const categoryLevel = categoryResult.levelName ?? "Unknown";
+
+        return {
+          category: cs.categoryName,
+          score: cs.score,
+          maxScore: cs.maxScore,
+          percentage: categoryPercentage,
+          level: categoryLevel,
+          color: categoryColors[cs.categoryName] || "#6b7280"
+        };
+      });
+
+      const overallPercentage = scoringData.overall?.percentage ?? Math.round((totalScore / maxPossibleScore) * 100);
+      const overallLevel = scoringData.overall?.levelName ?? "Unknown";
+
+      return {
+        userInfo,
+        questionnaireName: questionnaire.title || "Assessment",
+        scores,
+        overallScore: overallPercentage,
+        overallLevel,
+        reflections: {} // Would be populated with user reflections
+      };
+    } catch (error) {
+      console.error('Error calculating dynamic scores:', error);
+      
+      // Fallback to basic calculation if API fails
+      const scores: CategoryScore[] = categoryScores.map((cs) => {
+        const percentage = cs.maxScore > 0 ? Math.round((cs.score / cs.maxScore) * 100) : 0;
+        return {
+          category: cs.categoryName,
+          score: cs.score,
+          maxScore: cs.maxScore,
+          percentage,
+          level: percentage >= 75 ? "High" : percentage >= 50 ? "Medium" : "Low",
+          color: categoryColors[cs.categoryName] || "#6b7280"
+        };
+      });
+
+      const overallScore = Math.round(
+        scores.reduce((sum, score) => sum + score.percentage, 0) / scores.length
+      );
+
+      return {
+        userInfo,
+        questionnaireName: questionnaire.title || "Assessment",
+        scores,
+        overallScore,
+        overallLevel: overallScore >= 75 ? "High" : overallScore >= 50 ? "Medium" : "Low",
+        reflections: {}
+      };
+    }
   };
 
   const handleStartAssessment = () => {
@@ -168,7 +243,7 @@ const Assessment = () => {
         });
 
         // Calculate results for display
-        const calculatedResults = calculateResults(userInfo, assessmentAnswers);
+        const calculatedResults = await calculateResults(userInfo, assessmentAnswers);
         setResults(calculatedResults);
         setCurrentStep("results");
         
@@ -185,7 +260,7 @@ const Assessment = () => {
         });
         
         // Still show results even if saving failed
-        const calculatedResults = calculateResults(userInfo, assessmentAnswers);
+        const calculatedResults = await calculateResults(userInfo, assessmentAnswers);
         setResults(calculatedResults);
         setCurrentStep("results");
       }

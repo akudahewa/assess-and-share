@@ -66,32 +66,87 @@ scoringRuleSchema.pre('save', function(next) {
   if (this.minPercentage >= this.maxPercentage) {
     throw new Error('Minimum percentage must be less than maximum percentage');
   }
-  
-  // Check for overlapping ranges
-  this.constructor.findOne({
+
+  // Build category matching condition:
+  // - If categoryId is set, only compare with same categoryId
+  // - If categoryId is null/undefined, only compare with rules where categoryId is null or not set
+  const categoryMatch = (this.categoryId != null)
+    ? { categoryId: this.categoryId }
+    : { $or: [{ categoryId: null }, { categoryId: { $exists: false } }] };
+
+  // Overlap conditions (range intersection)
+  const overlapConditions = [
+    {
+      minPercentage: { $lte: this.minPercentage },
+      maxPercentage: { $gte: this.minPercentage }
+    },
+    {
+      minPercentage: { $lte: this.maxPercentage },
+      maxPercentage: { $gte: this.maxPercentage }
+    },
+    {
+      minPercentage: { $gte: this.minPercentage },
+      maxPercentage: { $lte: this.maxPercentage }
+    }
+  ];
+
+  const query = {
     questionnaireId: this.questionnaireId,
-    categoryId: this.categoryId,
-    $or: [
-      {
-        minPercentage: { $lte: this.minPercentage },
-        maxPercentage: { $gte: this.minPercentage }
-      },
-      {
-        minPercentage: { $lte: this.maxPercentage },
-        maxPercentage: { $gte: this.maxPercentage }
-      },
-      {
-        minPercentage: { $gte: this.minPercentage },
-        maxPercentage: { $lte: this.maxPercentage }
+    _id: { $ne: this._id },
+    $and: [categoryMatch, { $or: overlapConditions }]
+  };
+
+  this.constructor.findOne(query)
+    .then(existingRule => {
+      if (existingRule) {
+        throw new Error('Scoring rule ranges cannot overlap');
       }
-    ],
-    _id: { $ne: this._id }
-  }).then(existingRule => {
+      next();
+    })
+    .catch(next);
+});
+
+// Ensure overlap validation also runs on findOneAndUpdate
+scoringRuleSchema.pre('findOneAndUpdate', async function(next) {
+  try {
+    const update = this.getUpdate() || {};
+    const current = await this.model.findOne(this.getQuery());
+    if (!current) return next();
+
+    const questionnaireId = update.questionnaireId ?? current.questionnaireId;
+    const categoryId = update.categoryId ?? current.categoryId;
+    const minPercentage = update.minPercentage ?? current.minPercentage;
+    const maxPercentage = update.maxPercentage ?? current.maxPercentage;
+
+    if (minPercentage >= maxPercentage) {
+      throw new Error('Minimum percentage must be less than maximum percentage');
+    }
+
+    const categoryMatch = (categoryId != null)
+      ? { categoryId }
+      : { $or: [{ categoryId: null }, { categoryId: { $exists: false } }] };
+
+    const overlapConditions = [
+      { minPercentage: { $lte: minPercentage }, maxPercentage: { $gte: minPercentage } },
+      { minPercentage: { $lte: maxPercentage }, maxPercentage: { $gte: maxPercentage } },
+      { minPercentage: { $gte: minPercentage }, maxPercentage: { $lte: maxPercentage } }
+    ];
+
+    const query = {
+      questionnaireId,
+      _id: { $ne: current._id },
+      $and: [categoryMatch, { $or: overlapConditions }]
+    };
+
+    const existingRule = await this.model.findOne(query);
     if (existingRule) {
       throw new Error('Scoring rule ranges cannot overlap');
     }
+
     next();
-  }).catch(next);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Static method to find rules by questionnaire

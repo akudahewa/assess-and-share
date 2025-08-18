@@ -145,10 +145,17 @@ export const ScoringRulesManager = () => {
       const overlappingRule = scoringRules.find(rule => {
         if (rule.questionnaireId !== formData.questionnaireId) return false;
         if (rule.id === editingId) return false; // Skip current rule when editing
-        
+
+        // Normalize category IDs: treat "all" or empty as overall (null)
+        const formCategoryId = formData.categoryId && formData.categoryId !== "all" ? formData.categoryId.toString() : null;
+        const ruleCategoryId = rule.categoryId ? rule.categoryId.toString() : null;
+
+        // Only compare ranges within the same category scope (including both null for overall)
+        if (ruleCategoryId !== formCategoryId) return false;
+
         const ruleMin = rule.minPercentage;
         const ruleMax = rule.maxPercentage;
-        
+
         // Check if ranges overlap
         return (minPercentage <= ruleMax && maxPercentage >= ruleMin);
       });

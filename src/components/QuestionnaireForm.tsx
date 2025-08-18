@@ -23,6 +23,7 @@ export interface QuestionnaireData {
   categories: {
     [key: string]: {
       name: string;
+      categoryId: string;
       questions: Question[];
     };
   };
